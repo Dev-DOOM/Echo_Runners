@@ -2,7 +2,7 @@ ECHO RUNNERS
 
 "Race against your past. Beat your own route. Discover a better way to run."
 
-Echo Runners is a 45-second top-down arcade courier game built in vanilla HTML5, CSS, and JavaScript (Canvas 2D). You pilot a courier bot to collect energy cells and bank them at an extraction beacon before time runs out. After every completed run, your recorded trajectory spawns as an active Echo Rival on the next run—physically competing against you for the exact same pool of collectibles.
+Echo Runners is a 45 second top down arcade courier game built in vanilla HTML5, CSS, and JavaScript (Canvas 2D). You pilot a courier bot to collect energy cells and bank them at an extraction beacon before time runs out. After every completed run, your recorded trajectory spawns as an active Echo Rival on the next run physically competing against you for the exact same pool of collectibles.
 
 Playable Links
 
@@ -18,7 +18,7 @@ V0.2 Fixed (Stable Competitive Echo): https://dev-doom.github.io/Echo_Runners/ve
 
 V0.3 (Risk & Reward Arena): https://dev-doom.github.io/Echo_Runners/versions/echo_runners_v03.html
 
-V0.4 Fixed (Multi-District & Daily Seed): https://dev-doom.github.io/Echo_Runners/versions/echo_runners_v04.html
+V0.4 Fixed (Multi District & Daily Seed): https://dev-doom.github.io/Echo_Runners/versions/echo_runners_v04.html
 
 V0.5 (Metagame & Gadget Workshop): https://dev-doom.github.io/Echo_Runners/versions/echo_runners_v05.html
 
@@ -38,7 +38,7 @@ Banked Cell (Delivered at green DROP beacon): +100 pts per unit
 
 Carried Cell (Unbanked at timeout): +15 pts per unit
 
-High-Value Orange Core (3x): Worth +3 cargo units (300 pts banked)
+High Value Orange Core (3x): Worth +3 cargo units (300 pts banked)
 
 Development Version History
 
@@ -60,13 +60,13 @@ V0.3 — Risk & Reward Gameplay (echo_runners_v03.html)
 
 Introduced solid rectangular wall obstacles to create distinct safe perimeter paths versus inner shortcuts.
 
-Added the red EMP Slow Zone (45% movement penalty), high-value 3x Energy Cores placed in high-risk zones, and shared Speed Boost Pads (1.45x speed for 2.5s on a 6s cooldown) that both the player and Echo can trigger.
+Added the red EMP Slow Zone (45% movement penalty), high-value 3x Energy Cores placed in high risk zones, and shared Speed Boost Pads (1.45x speed for 2.5s on a 6s cooldown) that both the player and Echo can trigger.
 
 V0.4 Fixed — Replayability & Challenge Layer (echo_runners_v04_fixed.html)
 
 Added 3 Selectable District Arenas (Sector Alpha, Twin Gates, and Core Reactor), each with isolated Echo and personal-best persistence.
 
-Implemented the Echo Rival Target Toggle (Previous Run Echo vs. Personal Best Echo), a deterministic Daily Fixed-Seed Mode (mulberry32 PRNG), 3 trackable Courier Contracts, and a 5-run session history log.
+Implemented the Echo Rival Target Toggle (Previous Run Echo vs. Personal Best Echo), a deterministic Daily Fixed Seed Mode (mulberry32 PRNG), 3 trackable Courier Contracts, and a 5-run session history log.
 
 V0.5 — Progression & Metagame (echo_runners_v05.html)
 
