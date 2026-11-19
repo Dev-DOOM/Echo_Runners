@@ -1,3 +1,5 @@
+<img width="3134" height="1344" alt="Gemini_Generated_Image_2s2k0p2s2k0p2s2k" src="https://github.com/user-attachments/assets/c2eea612-a877-412d-86cc-c8d251a671fa" />
+
 ECHO RUNNERS
 
 "Race against your past. Beat your own route. Discover a better way to run."
