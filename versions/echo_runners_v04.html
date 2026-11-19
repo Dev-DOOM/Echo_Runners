@@ -1,0 +1,1713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ECHO RUNNERS — V0.4 FIXED (Replayability & Challenge Layer)</title>
+  <style>
+    :root {
+      --bg-dark: #070b19;
+      --panel-bg: rgba(13, 20, 40, 0.94);
+      --player-blue: #00e5ff;
+      --echo-purple: #c084fc;
+      --echo-gold: #f59e0b;
+      --cell-yellow: #facc15;
+      --core-orange: #fb923c;
+      --beacon-green: #22c55e;
+      --hazard-red: #ef4444;
+      --text-light: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: #03060c;
+      color: var(--text-light);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    #game-wrapper {
+      position: relative;
+      width: 900px;
+      max-width: 98vw;
+    }
+
+    /* HUD BAR */
+    #hud {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+      background: var(--panel-bg);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-bottom: none;
+      padding: 10px 16px;
+      border-radius: 10px 10px 0 0;
+      align-items: center;
+    }
+
+    .hud-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .hud-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+
+    .hud-value {
+      font-size: 18px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .val-player { color: var(--player-blue); }
+    .val-echo { color: var(--echo-purple); }
+    .val-timer { color: var(--cell-yellow); font-size: 22px; }
+    .val-best { color: var(--beacon-green); }
+    .val-arena { color: #e2e8f0; font-size: 13px; }
+
+    /* CANVAS */
+    #canvas-container {
+      position: relative;
+      width: 900px;
+      height: 560px;
+      border: 2px solid rgba(0, 229, 255, 0.25);
+      border-radius: 0 0 10px 10px;
+      overflow: hidden;
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.7);
+      background: var(--bg-dark);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      pointer-events: auto;
+    }
+
+    /* OVERLAYS */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(7, 11, 25, 0.92);
+      backdrop-filter: blur(6px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px 28px;
+      text-align: center;
+      z-index: 20;
+      pointer-events: auto;
+    }
+
+    .hidden {
+      display: none !important;
+      pointer-events: none !important;
+    }
+
+    h1 {
+      font-size: 38px;
+      font-weight: 900;
+      letter-spacing: 3px;
+      color: var(--player-blue);
+      text-shadow: 0 0 20px rgba(0, 229, 255, 0.5);
+      margin-bottom: 4px;
+    }
+
+    .version-badge {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      background: rgba(192, 132, 252, 0.16);
+      color: var(--echo-purple);
+      border: 1px solid rgba(192, 132, 252, 0.4);
+      padding: 3px 10px;
+      border-radius: 99px;
+      margin-bottom: 8px;
+    }
+
+    .tagline {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+    }
+
+    /* SELECTOR PANELS */
+    .config-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      width: 100%;
+      max-width: 780px;
+      margin-bottom: 14px;
+    }
+
+    .panel-box {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 12px 16px;
+      text-align: left;
+    }
+
+    .panel-title {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--player-blue);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .pill-group {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    button.pill-btn {
+      flex: 1;
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-muted);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.12s ease;
+      pointer-events: auto;
+    }
+
+    button.pill-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--text-light);
+      border-color: rgba(0, 229, 255, 0.5);
+    }
+
+    button.pill-btn.active {
+      background: rgba(0, 229, 255, 0.18);
+      color: var(--text-light);
+      border-color: var(--player-blue);
+      box-shadow: 0 0 10px rgba(0, 229, 255, 0.25);
+    }
+
+    .challenge-list {
+      list-style: none;
+      font-size: 12px;
+      line-height: 1.65;
+      color: #cbd5e1;
+    }
+
+    .challenge-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 2px 0;
+    }
+
+    .challenge-done {
+      color: var(--beacon-green);
+      font-weight: 700;
+    }
+
+    .history-list {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      max-height: 88px;
+      overflow-y: auto;
+    }
+
+    .history-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    /* RESULTS LAYOUT */
+    .score-comparison {
+      display: flex;
+      gap: 24px;
+      margin: 10px 0 16px;
+    }
+
+    .score-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      padding: 12px 24px;
+      min-width: 195px;
+    }
+
+    .score-card h3 {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .score-card .big-score {
+      font-size: 32px;
+      font-weight: 900;
+      margin-bottom: 4px;
+    }
+
+    .score-card .breakdown {
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+
+    .winner-banner {
+      font-size: 19px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      padding: 6px 18px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 4px;
+    }
+
+    button.action-btn {
+      cursor: pointer;
+      border: none;
+      border-radius: 6px;
+      padding: 12px 24px;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+      pointer-events: auto;
+    }
+
+    button.action-btn:active {
+      transform: scale(0.97);
+    }
+
+    .btn-primary {
+      background: var(--player-blue);
+      color: #041019;
+      box-shadow: 0 0 18px rgba(0, 229, 255, 0.4);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 0 25px rgba(0, 229, 255, 0.7);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-light);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    .status-pill {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--echo-purple);
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-wrapper">
+    <!-- TOP HUD -->
+    <div id="hud">
+      <div class="hud-box">
+        <span class="hud-label">District / Mode</span>
+        <span class="hud-value val-arena" id="hud-arena-name">Sector Alpha</span>
+      </div>
+      <div class="hud-box">
+        <span class="hud-label">Player Score</span>
+        <span class="hud-value val-player" id="hud-player-score">0</span>
+      </div>
+      <div class="hud-box">
+        <span class="hud-label">Carried / Delivered</span>
+        <span class="hud-value val-player" id="hud-player-cells">0 / 0</span>
+      </div>
+      <div class="hud-box">
+        <span class="hud-label">Time Remaining</span>
+        <span class="hud-value val-timer" id="hud-timer">45.0s</span>
+      </div>
+      <div class="hud-box">
+        <span class="hud-label" id="hud-echo-label">Echo Rival (C/D)</span>
+        <span class="hud-value val-echo" id="hud-echo-score">0 (0/0)</span>
+      </div>
+      <div class="hud-box">
+        <span class="hud-label">District Best</span>
+        <span class="hud-value val-best" id="hud-best-score">0</span>
+      </div>
+    </div>
+
+    <!-- MAIN CANVAS & OVERLAYS -->
+    <div id="canvas-container">
+      <canvas id="game-canvas" width="900" height="560"></canvas>
+
+      <!-- START MENU OVERLAY -->
+      <div id="menu-screen" class="overlay">
+        <div class="version-badge">V0.4 FIXED — Replayability & Challenge Layer</div>
+        <h1>ECHO RUNNERS</h1>
+        <p class="tagline">Select a district, pick your Echo target, and conquer the Daily Route Contract.</p>
+
+        <div class="config-grid">
+          <!-- LEFT COLUMN: ARENA & ECHO SETTINGS -->
+          <div class="panel-box">
+            <div class="panel-title">
+              <span>1. Select Arena Layout</span>
+              <span id="menu-arena-best" style="color: var(--beacon-green);">Best: 0</span>
+            </div>
+            <div class="pill-group" id="arena-selector">
+              <button type="button" class="pill-btn active" id="btn-arena-alpha" onclick="window.selectArena('alpha')">Sector Alpha</button>
+              <button type="button" class="pill-btn" id="btn-arena-beta" onclick="window.selectArena('beta')">Twin Gates</button>
+              <button type="button" class="pill-btn" id="btn-arena-gamma" onclick="window.selectArena('gamma')">Core Reactor</button>
+            </div>
+
+            <div class="panel-title" style="margin-top: 10px;">
+              <span>2. Echo Rival Target</span>
+            </div>
+            <div class="pill-group" id="echo-mode-selector">
+              <button type="button" class="pill-btn active" id="btn-echomode-last" onclick="window.selectEchoMode('last')">Previous Run Echo</button>
+              <button type="button" class="pill-btn" id="btn-echomode-best" onclick="window.selectEchoMode('best')">Personal Best Echo</button>
+            </div>
+
+            <div class="panel-title" style="margin-top: 10px;">
+              <span>3. Spawn Pattern Mode</span>
+            </div>
+            <div class="pill-group" id="spawn-mode-selector">
+              <button type="button" class="pill-btn active" id="btn-spawnmode-standard" onclick="window.selectSpawnMode('standard')">Dynamic Arcade</button>
+              <button type="button" class="pill-btn" id="btn-spawnmode-daily" onclick="window.selectSpawnMode('daily')">Daily Fixed Seed</button>
+            </div>
+          </div>
+
+          <!-- RIGHT COLUMN: CHALLENGES & RUN HISTORY -->
+          <div class="panel-box">
+            <div class="panel-title">
+              <span>Courier Route Contracts</span>
+              <span id="contracts-progress" style="color: var(--cell-yellow);">0 / 3 Completed</span>
+            </div>
+            <ul class="challenge-list" id="menu-challenge-list"></ul>
+
+            <div class="panel-title" style="margin-top: 12px;">
+              <span>Recent Run History</span>
+            </div>
+            <div class="history-list" id="menu-history-list">
+              No runs completed yet in this session.
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button type="button" class="action-btn btn-primary" id="btn-start" onclick="window.startRun()">START 45s RUN</button>
+          <button type="button" class="action-btn btn-secondary" id="btn-reset-menu" onclick="window.resetCurrentArenaEcho()">RESET DISTRICT ECHO</button>
+        </div>
+        <div class="status-pill" id="menu-echo-status">Ready — Click any option above or press START 45s RUN!</div>
+      </div>
+
+      <!-- END-OF-RUN RESULTS OVERLAY -->
+      <div id="results-screen" class="overlay hidden">
+        <h1 style="font-size: 30px;">RUN COMPLETE</h1>
+        <div class="winner-banner" id="results-winner-msg">You beat the Echo!</div>
+
+        <div class="score-comparison">
+          <div class="score-card" style="border-color: rgba(0,229,255,0.4);">
+            <h3 class="val-player">Player (You)</h3>
+            <div class="big-score val-player" id="res-player-score">0</div>
+            <div class="breakdown" id="res-player-breakdown">Delivered: 0 | Carried: 0</div>
+          </div>
+
+          <div class="score-card" style="border-color: rgba(192,132,252,0.4);">
+            <h3 class="val-echo" id="res-echo-title">Echo Rival</h3>
+            <div class="big-score val-echo" id="res-echo-score">0</div>
+            <div class="breakdown" id="res-echo-breakdown">Delivered: 0 | Carried: 0</div>
+          </div>
+        </div>
+
+        <div class="panel-box" style="width: 100%; max-width: 560px; margin-bottom: 14px;">
+          <div class="panel-title">
+            <span>Contract Status & Run Breakdown</span>
+            <span id="res-contract-notice" style="color: var(--beacon-green);"></span>
+          </div>
+          <ul class="challenge-list" id="res-challenge-list"></ul>
+        </div>
+
+        <div class="btn-row">
+          <button type="button" class="action-btn btn-primary" id="btn-run-again" onclick="window.startRun()">RUN AGAIN</button>
+          <button type="button" class="action-btn btn-secondary" id="btn-back-menu" onclick="window.returnToMenu()">CHANGE DISTRICT / MODE</button>
+          <button type="button" class="action-btn btn-secondary" id="btn-reset-results" onclick="window.resetCurrentArenaEcho()">RESET ECHO</button>
+        </div>
+        <div class="status-pill" id="results-echo-status">Your route has been saved.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * ECHO RUNNERS — V0.4 FIXED
+     * Fixes:
+     * - Converted all selector pills to native <button type="button"> elements with direct onclick bindings.
+     * - Added safeStorage wrapper so file:// localStorage security restrictions never halt JS execution.
+     * - Exposed UI handlers on window for immediate, guaranteed responsiveness.
+     */
+
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+
+    // --- SAFE STORAGE WRAPPER (Prevents file:// SecurityError crashes) ---
+    const memoryStorage = {};
+    const safeStorage = {
+      getItem(key) {
+        try {
+          if (window.localStorage) return window.localStorage.getItem(key);
+        } catch (e) {}
+        return Object.prototype.hasOwnProperty.call(memoryStorage, key) ? memoryStorage[key] : null;
+      },
+      setItem(key, val) {
+        memoryStorage[key] = String(val);
+        try {
+          if (window.localStorage) window.localStorage.setItem(key, String(val));
+        } catch (e) {}
+      },
+      removeItem(key) {
+        delete memoryStorage[key];
+        try {
+          if (window.localStorage) window.localStorage.removeItem(key);
+        } catch (e) {}
+      }
+    };
+
+    // --- CONSTANTS ---
+    const ARENA_W = 900;
+    const ARENA_H = 560;
+    const RUN_DURATION_MS = 45000;
+    const SAMPLE_INTERVAL_MS = 70;
+    const MAX_TRAIL_RENDER = 160;
+
+    const BASE_PLAYER_SPEED = 250;
+    const BOOST_MULTIPLIER = 1.45;
+    const BOOST_DURATION_S = 2.5;
+    const HAZARD_SLOW_MULT = 0.55;
+
+    const BOT_RADIUS = 14;
+    const CELL_RADIUS = 8;
+    const CORE_RADIUS = 12;
+
+    const TARGET_NORMAL_CELLS = 10;
+    const TARGET_HIGH_CORES = 2;
+
+    // --- ARENA DEFINITIONS ---
+    const ARENAS = {
+      alpha: {
+        id: 'alpha',
+        name: 'Sector Alpha',
+        spawn: { x: 430, y: 310 },
+        beacon: { x: 810, y: 85, radius: 44 },
+        obstacles: [
+          { x: 270, y: 150, w: 36, h: 250 },
+          { x: 520, y: 240, w: 230, h: 36 }
+        ],
+        hazards: [
+          { x: 565, y: 135, radius: 68 }
+        ],
+        boostPads: [
+          { x: 160, y: 110, radius: 22, maxCooldown: 6.0 },
+          { x: 740, y: 430, radius: 22, maxCooldown: 6.0 }
+        ],
+        highValueAnchors: [
+          { x: 105, y: 475 },
+          { x: 565, y: 135 },
+          { x: 420, y: 485 }
+        ]
+      },
+      beta: {
+        id: 'beta',
+        name: 'Twin Gates',
+        spawn: { x: 140, y: 280 },
+        beacon: { x: 805, y: 280, radius: 44 },
+        obstacles: [
+          { x: 330, y: 60, w: 34, h: 175 },
+          { x: 330, y: 325, w: 34, h: 175 },
+          { x: 580, y: 170, w: 34, h: 220 }
+        ],
+        hazards: [
+          { x: 455, y: 190, radius: 56 },
+          { x: 455, y: 370, radius: 56 }
+        ],
+        boostPads: [
+          { x: 230, y: 95, radius: 22, maxCooldown: 6.0 },
+          { x: 230, y: 465, radius: 22, maxCooldown: 6.0 }
+        ],
+        highValueAnchors: [
+          { x: 455, y: 190 },
+          { x: 455, y: 370 },
+          { x: 700, y: 85 }
+        ]
+      },
+      gamma: {
+        id: 'gamma',
+        name: 'Core Reactor',
+        spawn: { x: 450, y: 490 },
+        beacon: { x: 450, y: 75, radius: 44 },
+        obstacles: [
+          { x: 220, y: 175, w: 135, h: 32 },
+          { x: 545, y: 175, w: 135, h: 32 },
+          { x: 220, y: 355, w: 135, h: 32 },
+          { x: 545, y: 355, w: 135, h: 32 }
+        ],
+        hazards: [
+          { x: 450, y: 280, radius: 82 }
+        ],
+        boostPads: [
+          { x: 115, y: 280, radius: 22, maxCooldown: 5.5 },
+          { x: 785, y: 280, radius: 22, maxCooldown: 5.5 },
+          { x: 450, y: 415, radius: 22, maxCooldown: 6.5 }
+        ],
+        highValueAnchors: [
+          { x: 450, y: 280 },
+          { x: 110, y: 100 },
+          { x: 790, y: 100 }
+        ]
+      }
+    };
+
+    const CONTRACTS = [
+      {
+        id: 'clean_runner',
+        title: 'Clean Telemetry',
+        desc: 'Deliver 12+ cells without touching an EMP Slow Zone'
+      },
+      {
+        id: 'core_hunter',
+        title: 'High-Voltage Harvester',
+        desc: 'Collect at least 3 Orange High-Value Cores (3x) in one run'
+      },
+      {
+        id: 'echo_crusher',
+        title: 'Outpace the Past',
+        desc: 'Beat an active Echo Rival by 300+ points'
+      }
+    ];
+
+    const STORAGE_PREFIX = 'echo_runners_v04_';
+
+    // --- STATE ---
+    const STATE = { MENU: 'MENU', RUNNING: 'RUNNING', RESULTS: 'RESULTS' };
+    let currentState = STATE.MENU;
+
+    let selectedArenaId = 'alpha';
+    let selectedEchoMode = 'last';
+    let selectedSpawnMode = 'standard';
+
+    let activeArena = ARENAS.alpha;
+    let activeBoostPads = [];
+
+    let lastFrameTimestamp = 0;
+    let elapsedRunMs = 0;
+    let nextSampleMs = 0;
+
+    let currentRecordedRoute = [];
+    let activeEchoRoute = null;
+    let runRandom = Math.random;
+
+    let runTelemetry = {
+      touchedHazard: false,
+      highCoresCollected: 0
+    };
+
+    let completedContracts = {};
+    let runHistory = [];
+
+    const player = {
+      x: 430,
+      y: 310,
+      carried: 0,
+      delivered: 0,
+      score: 0,
+      boostTimer: 0,
+      inHazard: false,
+      trail: []
+    };
+
+    const echo = {
+      active: false,
+      isBestEcho: false,
+      x: 430,
+      y: 310,
+      carried: 0,
+      delivered: 0,
+      score: 0,
+      boostTimer: 0,
+      trail: []
+    };
+
+    let cells = [];
+    const keys = { up: false, down: false, left: false, right: false };
+    const pointer = { active: false, x: 0, y: 0 };
+
+    // --- DOM REFERENCES ---
+    const hudArenaName = document.getElementById('hud-arena-name');
+    const hudPlayerScore = document.getElementById('hud-player-score');
+    const hudPlayerCells = document.getElementById('hud-player-cells');
+    const hudTimer = document.getElementById('hud-timer');
+    const hudEchoLabel = document.getElementById('hud-echo-label');
+    const hudEchoScore = document.getElementById('hud-echo-score');
+    const hudBestScore = document.getElementById('hud-best-score');
+
+    const menuScreen = document.getElementById('menu-screen');
+    const resultsScreen = document.getElementById('results-screen');
+    const menuArenaBest = document.getElementById('menu-arena-best');
+    const menuEchoStatus = document.getElementById('menu-echo-status');
+    const menuChallengeList = document.getElementById('menu-challenge-list');
+    const contractsProgress = document.getElementById('contracts-progress');
+    const menuHistoryList = document.getElementById('menu-history-list');
+
+    const resultsWinnerMsg = document.getElementById('results-winner-msg');
+    const resPlayerScore = document.getElementById('res-player-score');
+    const resPlayerBreakdown = document.getElementById('res-player-breakdown');
+    const resEchoTitle = document.getElementById('res-echo-title');
+    const resEchoScore = document.getElementById('res-echo-score');
+    const resEchoBreakdown = document.getElementById('res-echo-breakdown');
+    const resChallengeList = document.getElementById('res-challenge-list');
+    const resContractNotice = document.getElementById('res-contract-notice');
+    const resultsEchoStatus = document.getElementById('results-echo-status');
+
+    // --- DETERMINISTIC DAILY SEED PRNG ---
+    function createSeededRandom(seedInt) {
+      let a = seedInt >>> 0;
+      return function() {
+        let t = (a += 0x6D2B79F5);
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    function getDailySeedInteger(arenaId) {
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}-${arenaId}`;
+      let hash = 2166136261;
+      for (let i = 0; i < dateStr.length; i++) {
+        hash ^= dateStr.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+      }
+      return hash >>> 0;
+    }
+
+    // --- STORAGE HELPERS ---
+    function getArenaKey(arenaId, suffix) {
+      return `${STORAGE_PREFIX}${arenaId}_${suffix}`;
+    }
+
+    function getArenaBestScore(arenaId) {
+      const raw = safeStorage.getItem(getArenaKey(arenaId, 'best_score'));
+      const val = parseInt(raw, 10);
+      return (!isNaN(val) && val >= 0) ? val : 0;
+    }
+
+    function setArenaBestScore(arenaId, score) {
+      safeStorage.setItem(getArenaKey(arenaId, 'best_score'), String(score));
+    }
+
+    function loadValidatedRouteFromKey(storageKey) {
+      try {
+        const raw = safeStorage.getItem(storageKey);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed) || parsed.length < 2) return null;
+
+        const clean = [];
+        let lastT = -1;
+        for (let i = 0; i < parsed.length; i++) {
+          const pt = parsed[i];
+          if (
+            pt &&
+            typeof pt.t === 'number' && !isNaN(pt.t) &&
+            typeof pt.x === 'number' && !isNaN(pt.x) &&
+            typeof pt.y === 'number' && !isNaN(pt.y)
+          ) {
+            const clampedT = Math.max(0, Math.min(RUN_DURATION_MS + 1000, pt.t));
+            if (clampedT >= lastT) {
+              clean.push({
+                t: Math.round(clampedT),
+                x: Math.max(BOT_RADIUS, Math.min(ARENA_W - BOT_RADIUS, pt.x)),
+                y: Math.max(BOT_RADIUS, Math.min(ARENA_H - BOT_RADIUS, pt.y))
+              });
+              lastT = clampedT;
+            }
+          }
+        }
+        return clean.length >= 2 ? clean : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function saveArenaRoute(arenaId, suffix, routeArray) {
+      if (!Array.isArray(routeArray) || routeArray.length < 2) return;
+      try {
+        safeStorage.setItem(getArenaKey(arenaId, suffix), JSON.stringify(routeArray));
+      } catch (e) {}
+    }
+
+    function loadMetaPersistence() {
+      try {
+        const rawContracts = safeStorage.getItem(`${STORAGE_PREFIX}contracts`);
+        if (rawContracts) completedContracts = JSON.parse(rawContracts) || {};
+      } catch (e) {
+        completedContracts = {};
+      }
+
+      try {
+        const rawHistory = safeStorage.getItem(`${STORAGE_PREFIX}history`);
+        if (rawHistory) {
+          const parsed = JSON.parse(rawHistory);
+          if (Array.isArray(parsed)) runHistory = parsed.slice(0, 5);
+        }
+      } catch (e) {
+        runHistory = [];
+      }
+    }
+
+    function saveMetaPersistence() {
+      try {
+        safeStorage.setItem(`${STORAGE_PREFIX}contracts`, JSON.stringify(completedContracts));
+        safeStorage.setItem(`${STORAGE_PREFIX}history`, JSON.stringify(runHistory.slice(0, 5)));
+      } catch (e) {}
+    }
+
+    // --- GLOBAL SELECTION HANDLERS (Bound directly to buttons) ---
+    window.selectArena = function(arenaId) {
+      if (!ARENAS[arenaId]) return;
+      selectedArenaId = arenaId;
+      ['alpha', 'beta', 'gamma'].forEach(id => {
+        const el = document.getElementById(`btn-arena-${id}`);
+        if (el) el.classList.toggle('active', id === arenaId);
+      });
+      player.x = ARENAS[selectedArenaId].spawn.x;
+      player.y = ARENAS[selectedArenaId].spawn.y;
+      refreshMenuUI();
+    };
+
+    window.selectEchoMode = function(mode) {
+      selectedEchoMode = mode;
+      ['last', 'best'].forEach(m => {
+        const el = document.getElementById(`btn-echomode-${m}`);
+        if (el) el.classList.toggle('active', m === mode);
+      });
+      refreshMenuUI();
+    };
+
+    window.selectSpawnMode = function(mode) {
+      selectedSpawnMode = mode;
+      ['standard', 'daily'].forEach(m => {
+        const el = document.getElementById(`btn-spawnmode-${m}`);
+        if (el) el.classList.toggle('active', m === mode);
+      });
+      refreshMenuUI();
+    };
+
+    window.resetCurrentArenaEcho = function() {
+      safeStorage.removeItem(getArenaKey(selectedArenaId, 'last_route'));
+      safeStorage.removeItem(getArenaKey(selectedArenaId, 'best_route'));
+      refreshMenuUI();
+      resultsEchoStatus.textContent = `Echo routes cleared for ${ARENAS[selectedArenaId].name}!`;
+    };
+
+    window.returnToMenu = function() {
+      resultsScreen.classList.add('hidden');
+      menuScreen.classList.remove('hidden');
+      currentState = STATE.MENU;
+      refreshMenuUI();
+    };
+
+    // --- UI REFRESH HELPERS ---
+    function refreshMenuUI() {
+      activeArena = ARENAS[selectedArenaId];
+      const best = getArenaBestScore(selectedArenaId);
+      menuArenaBest.textContent = `Best: ${best}`;
+      hudBestScore.textContent = best;
+      hudArenaName.textContent = `${activeArena.name}${selectedSpawnMode === 'daily' ? ' [DAILY]' : ''}`;
+
+      const routeSuffix = selectedEchoMode === 'best' ? 'best_route' : 'last_route';
+      const loadedRoute = loadValidatedRouteFromKey(getArenaKey(selectedArenaId, routeSuffix));
+      const fallbackRoute = selectedEchoMode === 'best'
+        ? loadValidatedRouteFromKey(getArenaKey(selectedArenaId, 'last_route'))
+        : null;
+
+      const effectiveRoute = loadedRoute || fallbackRoute;
+      if (effectiveRoute) {
+        const label = (selectedEchoMode === 'best' && loadedRoute) ? 'Personal Best Echo' : 'Previous Run Echo';
+        menuEchoStatus.textContent = `${activeArena.name} | ${label} Ready (${effectiveRoute.length} samples) | Mode: ${selectedSpawnMode.toUpperCase()}`;
+      } else {
+        menuEchoStatus.textContent = `${activeArena.name} | No Echo recorded yet — Run #1 will create it! | Mode: ${selectedSpawnMode.toUpperCase()}`;
+      }
+
+      renderChallengeList(menuChallengeList);
+      const doneCount = CONTRACTS.filter(c => completedContracts[c.id]).length;
+      contractsProgress.textContent = `${doneCount} / ${CONTRACTS.length} Completed`;
+
+      if (runHistory.length === 0) {
+        menuHistoryList.innerHTML = 'No runs completed yet. Start a run to log telemetry!';
+      } else {
+        menuHistoryList.innerHTML = runHistory.map(item => `
+          <div class="history-row">
+            <span><strong>${item.arena}</strong> (${item.mode})</span>
+            <span style="color:${item.won ? '#4ade80' : '#cbd5e1'};">P: ${item.pScore} vs E: ${item.eScore}</span>
+          </div>
+        `).join('');
+      }
+    }
+
+    function renderChallengeList(ulElement) {
+      if (!ulElement) return;
+      ulElement.innerHTML = CONTRACTS.map(c => {
+        const isDone = !!completedContracts[c.id];
+        return `
+          <li class="challenge-item ${isDone ? 'challenge-done' : ''}">
+            <span>${isDone ? '✓ ' : '○ '}<strong>${c.title}:</strong> ${c.desc}</span>
+            <span>${isDone ? 'DONE' : 'ACTIVE'}</span>
+          </li>
+        `;
+      }).join('');
+    }
+
+    // --- GEOMETRY & COLLISION HELPERS ---
+    function circleIntersectsRect(cx, cy, cr, rect) {
+      const closestX = Math.max(rect.x, Math.min(cx, rect.x + rect.w));
+      const closestY = Math.max(rect.y, Math.min(cy, rect.y + rect.h));
+      const dx = cx - closestX;
+      const dy = cy - closestY;
+      return (dx * dx + dy * dy) < (cr * cr);
+    }
+
+    function isPointBlockedByObstacle(x, y, margin) {
+      const obs = activeArena.obstacles;
+      for (let i = 0; i < obs.length; i++) {
+        if (circleIntersectsRect(x, y, margin, obs[i])) return true;
+      }
+      return false;
+    }
+
+    function resolveCircleObstacleCollision(entity, radius) {
+      const obs = activeArena.obstacles;
+      for (let i = 0; i < obs.length; i++) {
+        const r = obs[i];
+        const closestX = Math.max(r.x, Math.min(entity.x, r.x + r.w));
+        const closestY = Math.max(r.y, Math.min(entity.y, r.y + r.h));
+        let dx = entity.x - closestX;
+        let dy = entity.y - closestY;
+        const distSq = dx * dx + dy * dy;
+
+        if (distSq < radius * radius) {
+          const dist = Math.sqrt(distSq);
+          if (dist > 0.0001) {
+            const overlap = radius - dist;
+            entity.x += (dx / dist) * overlap;
+            entity.y += (dy / dist) * overlap;
+          } else {
+            const leftPen = Math.abs(entity.x - r.x);
+            const rightPen = Math.abs((r.x + r.w) - entity.x);
+            const topPen = Math.abs(entity.y - r.y);
+            const botPen = Math.abs((r.y + r.h) - entity.y);
+            const minPen = Math.min(leftPen, rightPen, topPen, botPen);
+            if (minPen === leftPen) entity.x = r.x - radius;
+            else if (minPen === rightPen) entity.x = r.x + r.w + radius;
+            else if (minPen === topPen) entity.y = r.y - radius;
+            else entity.y = r.y + r.h + radius;
+          }
+        }
+      }
+    }
+
+    function isEntityInHazard(x, y) {
+      const hazards = activeArena.hazards;
+      for (let i = 0; i < hazards.length; i++) {
+        const h = hazards[i];
+        if (Math.hypot(x - h.x, y - h.y) <= (h.radius + BOT_RADIUS * 0.4)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // --- BINARY SEARCH INTERPOLATION FOR ECHO ---
+    function getInterpolatedEchoPosition(route, elapsedMs) {
+      const n = route.length;
+      if (n === 0) return { x: activeArena.spawn.x, y: activeArena.spawn.y };
+      if (elapsedMs <= route[0].t) return { x: route[0].x, y: route[0].y };
+      if (elapsedMs >= route[n - 1].t) return { x: route[n - 1].x, y: route[n - 1].y };
+
+      let lo = 0;
+      let hi = n - 1;
+      while (lo <= hi) {
+        const mid = (lo + hi) >>> 1;
+        if (route[mid].t < elapsedMs) {
+          lo = mid + 1;
+        } else if (route[mid].t > elapsedMs) {
+          hi = mid - 1;
+        } else {
+          return { x: route[mid].x, y: route[mid].y };
+        }
+      }
+
+      const idx0 = Math.max(0, hi);
+      const idx1 = Math.min(n - 1, lo);
+      const s0 = route[idx0];
+      const s1 = route[idx1];
+
+      const span = s1.t - s0.t;
+      if (span <= 0) return { x: s0.x, y: s0.y };
+
+      const alpha = (elapsedMs - s0.t) / span;
+      return {
+        x: s0.x + (s1.x - s0.x) * alpha,
+        y: s0.y + (s1.y - s0.y) * alpha
+      };
+    }
+
+    // --- COLLECTIBLE SPAWNING ---
+    function spawnNormalCell() {
+      const margin = 36;
+      const beacon = activeArena.beacon;
+      for (let attempt = 0; attempt < 35; attempt++) {
+        const x = margin + runRandom() * (ARENA_W - margin * 2);
+        const y = margin + runRandom() * (ARENA_H - margin * 2);
+
+        if (isPointBlockedByObstacle(x, y, CELL_RADIUS + 14)) continue;
+        if (Math.hypot(x - beacon.x, y - beacon.y) < beacon.radius + 45) continue;
+        if (Math.hypot(x - player.x, y - player.y) < 55) continue;
+
+        let tooClose = false;
+        for (let i = 0; i < cells.length; i++) {
+          if (Math.hypot(x - cells[i].x, y - cells[i].y) < 38) {
+            tooClose = true;
+            break;
+          }
+        }
+        if (!tooClose) {
+          cells.push({
+            x,
+            y,
+            value: 1,
+            radius: CELL_RADIUS,
+            isHighValue: false,
+            pulse: runRandom() * Math.PI * 2
+          });
+          return;
+        }
+      }
+    }
+
+    function spawnHighValueCore() {
+      const anchors = activeArena.highValueAnchors;
+      const indices = anchors.map((_, idx) => idx);
+      for (let i = indices.length - 1; i > 0; i--) {
+        const j = Math.floor(runRandom() * (i + 1));
+        const temp = indices[i];
+        indices[i] = indices[j];
+        indices[j] = temp;
+      }
+
+      for (let k = 0; k < indices.length; k++) {
+        const anchor = anchors[indices[k]];
+        const jitterX = anchor.x + (runRandom() - 0.5) * 32;
+        const jitterY = anchor.y + (runRandom() - 0.5) * 32;
+
+        if (isPointBlockedByObstacle(jitterX, jitterY, CORE_RADIUS + 10)) continue;
+
+        let occupied = false;
+        for (let j = 0; j < cells.length; j++) {
+          if (Math.hypot(jitterX - cells[j].x, jitterY - cells[j].y) < 42) {
+            occupied = true;
+            break;
+          }
+        }
+        if (!occupied) {
+          cells.push({
+            x: jitterX,
+            y: jitterY,
+            value: 3,
+            radius: CORE_RADIUS,
+            isHighValue: true,
+            pulse: runRandom() * Math.PI * 2
+          });
+          return;
+        }
+      }
+    }
+
+    function ensureCellsPopulated() {
+      let normalCount = 0;
+      let highCount = 0;
+      for (let i = 0; i < cells.length; i++) {
+        if (cells[i].isHighValue) highCount++;
+        else normalCount++;
+      }
+
+      while (highCount < TARGET_HIGH_CORES) {
+        const before = cells.length;
+        spawnHighValueCore();
+        if (cells.length === before) break;
+        highCount++;
+      }
+
+      while (normalCount < TARGET_NORMAL_CELLS) {
+        const before = cells.length;
+        spawnNormalCell();
+        if (cells.length === before) break;
+        normalCount++;
+      }
+    }
+
+    // --- SCORING & HUD ---
+    function computeScore(delivered, carried) {
+      return delivered * 100 + carried * 15;
+    }
+
+    function updateHUD() {
+      player.score = computeScore(player.delivered, player.carried);
+      echo.score = computeScore(echo.delivered, echo.carried);
+
+      hudPlayerScore.textContent = player.score;
+      hudPlayerCells.textContent = `${player.carried} / ${player.delivered}`;
+
+      const remainingSec = Math.max(0, (RUN_DURATION_MS - elapsedRunMs) / 1000);
+      hudTimer.textContent = `${remainingSec.toFixed(1)}s`;
+
+      if (echo.active) {
+        hudEchoScore.textContent = `${echo.score} (${echo.carried}/${echo.delivered})`;
+      } else {
+        hudEchoScore.textContent = `NONE`;
+      }
+
+      const currentBest = getArenaBestScore(selectedArenaId);
+      if (player.score > currentBest) {
+        hudBestScore.textContent = player.score;
+      }
+    }
+
+    // --- RUN LIFECYCLE ---
+    window.startRun = function() {
+      activeArena = ARENAS[selectedArenaId];
+      elapsedRunMs = 0;
+      nextSampleMs = 0;
+
+      if (selectedSpawnMode === 'daily') {
+        runRandom = createSeededRandom(getDailySeedInteger(selectedArenaId));
+      } else {
+        runRandom = Math.random;
+      }
+
+      runTelemetry.touchedHazard = false;
+      runTelemetry.highCoresCollected = 0;
+
+      activeBoostPads = activeArena.boostPads.map(p => ({
+        x: p.x,
+        y: p.y,
+        radius: p.radius,
+        cooldown: 0,
+        maxCooldown: p.maxCooldown
+      }));
+
+      player.x = activeArena.spawn.x;
+      player.y = activeArena.spawn.y;
+      player.carried = 0;
+      player.delivered = 0;
+      player.score = 0;
+      player.boostTimer = 0;
+      player.inHazard = false;
+      player.trail = [{ x: player.x, y: player.y }];
+
+      currentRecordedRoute = [{ t: 0, x: Math.round(player.x), y: Math.round(player.y) }];
+      nextSampleMs = SAMPLE_INTERVAL_MS;
+
+      const primaryKey = getArenaKey(selectedArenaId, selectedEchoMode === 'best' ? 'best_route' : 'last_route');
+      const fallbackKey = getArenaKey(selectedArenaId, 'last_route');
+      const primaryRoute = loadValidatedRouteFromKey(primaryKey);
+      const loadedRoute = primaryRoute || loadValidatedRouteFromKey(fallbackKey);
+
+      if (loadedRoute && loadedRoute.length >= 2) {
+        activeEchoRoute = loadedRoute;
+        echo.active = true;
+        echo.isBestEcho = (selectedEchoMode === 'best' && !!primaryRoute);
+        echo.x = activeEchoRoute[0].x;
+        echo.y = activeEchoRoute[0].y;
+        echo.carried = 0;
+        echo.delivered = 0;
+        echo.score = 0;
+        echo.boostTimer = 0;
+        echo.trail = [{ x: echo.x, y: echo.y }];
+        hudEchoLabel.textContent = echo.isBestEcho ? 'PB Echo (C/D)' : 'Last Echo (C/D)';
+      } else {
+        activeEchoRoute = null;
+        echo.active = false;
+        echo.isBestEcho = false;
+        echo.x = activeArena.spawn.x;
+        echo.y = activeArena.spawn.y;
+        echo.carried = 0;
+        echo.delivered = 0;
+        echo.score = 0;
+        echo.boostTimer = 0;
+        echo.trail = [];
+        hudEchoLabel.textContent = 'Echo Rival';
+      }
+
+      hudArenaName.textContent = `${activeArena.name}${selectedSpawnMode === 'daily' ? ' [DAILY]' : ''}`;
+      hudBestScore.textContent = getArenaBestScore(selectedArenaId);
+
+      cells = [];
+      ensureCellsPopulated();
+
+      menuScreen.classList.add('hidden');
+      resultsScreen.classList.add('hidden');
+      currentState = STATE.RUNNING;
+      updateHUD();
+    };
+
+    function finishRun() {
+      currentState = STATE.RESULTS;
+
+      currentRecordedRoute.push({
+        t: RUN_DURATION_MS,
+        x: Math.round(player.x),
+        y: Math.round(player.y)
+      });
+
+      player.score = computeScore(player.delivered, player.carried);
+      echo.score = computeScore(echo.delivered, echo.carried);
+
+      const prevBest = getArenaBestScore(selectedArenaId);
+      const isNewBest = player.score > prevBest;
+
+      saveArenaRoute(selectedArenaId, 'last_route', currentRecordedRoute);
+      if (isNewBest || !loadValidatedRouteFromKey(getArenaKey(selectedArenaId, 'best_route'))) {
+        setArenaBestScore(selectedArenaId, Math.max(prevBest, player.score));
+        saveArenaRoute(selectedArenaId, 'best_route', currentRecordedRoute);
+      }
+
+      hudBestScore.textContent = getArenaBestScore(selectedArenaId);
+
+      let newlyCompleted = 0;
+      if (player.delivered >= 12 && !runTelemetry.touchedHazard && !completedContracts.clean_runner) {
+        completedContracts.clean_runner = true;
+        newlyCompleted++;
+      }
+      if (runTelemetry.highCoresCollected >= 3 && !completedContracts.core_hunter) {
+        completedContracts.core_hunter = true;
+        newlyCompleted++;
+      }
+      if (echo.active && (player.score - echo.score) >= 300 && !completedContracts.echo_crusher) {
+        completedContracts.echo_crusher = true;
+        newlyCompleted++;
+      }
+
+      runHistory.unshift({
+        arena: activeArena.name,
+        mode: selectedSpawnMode === 'daily' ? 'Daily' : 'Arcade',
+        pScore: player.score,
+        eScore: echo.active ? echo.score : '—',
+        won: !echo.active || player.score > echo.score
+      });
+      if (runHistory.length > 5) runHistory.pop();
+      saveMetaPersistence();
+
+      resPlayerScore.textContent = player.score;
+      resPlayerBreakdown.textContent = `Delivered: ${player.delivered} | Carried: ${player.carried} | 3x Cores: ${runTelemetry.highCoresCollected}`;
+
+      resEchoTitle.textContent = echo.isBestEcho ? 'Personal Best Echo' : 'Previous Run Echo';
+
+      if (echo.active) {
+        resEchoScore.textContent = echo.score;
+        resEchoBreakdown.textContent = `Delivered: ${echo.delivered} | Carried: ${echo.carried}`;
+
+        if (player.score > echo.score) {
+          resultsWinnerMsg.textContent = isNewBest ? 'You beat the Echo & set a New District Best!' : 'You beat the Echo!';
+          resultsWinnerMsg.style.color = '#22c55e';
+        } else if (player.score < echo.score) {
+          resultsWinnerMsg.textContent = 'The Echo wins this run.';
+          resultsWinnerMsg.style.color = '#c084fc';
+        } else {
+          resultsWinnerMsg.textContent = 'Exact Tie with your Echo!';
+          resultsWinnerMsg.style.color = '#facc15';
+        }
+      } else {
+        resEchoScore.textContent = '—';
+        resEchoBreakdown.textContent = 'First District Run (No Rival Yet)';
+        resultsWinnerMsg.textContent = `First Echo Recorded for ${activeArena.name}!`;
+        resultsWinnerMsg.style.color = '#00e5ff';
+      }
+
+      resContractNotice.textContent = newlyCompleted > 0
+        ? `+${newlyCompleted} Contract Completed!`
+        : `EMP Touched: ${runTelemetry.touchedHazard ? 'Yes' : 'No'}`;
+
+      renderChallengeList(resChallengeList);
+      resultsEchoStatus.textContent = isNewBest
+        ? 'Saved as both Previous Run Echo AND New Personal Best Echo!'
+        : 'Saved as your Previous Run Echo for this district.';
+
+      resultsScreen.classList.remove('hidden');
+    }
+
+    // --- UPDATE LOGIC ---
+    function updateGame(dtSeconds) {
+      if (currentState !== STATE.RUNNING) return;
+
+      elapsedRunMs += dtSeconds * 1000;
+
+      if (player.boostTimer > 0) player.boostTimer = Math.max(0, player.boostTimer - dtSeconds);
+      if (echo.boostTimer > 0) echo.boostTimer = Math.max(0, echo.boostTimer - dtSeconds);
+
+      for (let i = 0; i < activeBoostPads.length; i++) {
+        if (activeBoostPads[i].cooldown > 0) {
+          activeBoostPads[i].cooldown = Math.max(0, activeBoostPads[i].cooldown - dtSeconds);
+        }
+      }
+
+      player.inHazard = isEntityInHazard(player.x, player.y);
+      if (player.inHazard) {
+        runTelemetry.touchedHazard = true;
+      }
+
+      let currentSpeed = BASE_PLAYER_SPEED;
+      if (player.boostTimer > 0) currentSpeed *= BOOST_MULTIPLIER;
+      if (player.inHazard) currentSpeed *= HAZARD_SLOW_MULT;
+
+      let vx = 0;
+      let vy = 0;
+      if (keys.left) vx -= 1;
+      if (keys.right) vx += 1;
+      if (keys.up) vy -= 1;
+      if (keys.down) vy += 1;
+
+      if (vx !== 0 || vy !== 0) {
+        const len = Math.hypot(vx, vy);
+        vx /= len;
+        vy /= len;
+      } else if (pointer.active) {
+        const dx = pointer.x - player.x;
+        const dy = pointer.y - player.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 6) {
+          vx = dx / dist;
+          vy = dy / dist;
+        }
+      }
+
+      player.x += vx * currentSpeed * dtSeconds;
+      player.y += vy * currentSpeed * dtSeconds;
+
+      player.x = Math.max(BOT_RADIUS, Math.min(ARENA_W - BOT_RADIUS, player.x));
+      player.y = Math.max(BOT_RADIUS, Math.min(ARENA_H - BOT_RADIUS, player.y));
+      resolveCircleObstacleCollision(player, BOT_RADIUS);
+
+      if (elapsedRunMs >= nextSampleMs) {
+        currentRecordedRoute.push({
+          t: Math.round(elapsedRunMs),
+          x: Math.round(player.x),
+          y: Math.round(player.y)
+        });
+        nextSampleMs += SAMPLE_INTERVAL_MS;
+
+        player.trail.push({ x: player.x, y: player.y });
+        if (player.trail.length > MAX_TRAIL_RENDER) player.trail.shift();
+
+        if (echo.active) {
+          echo.trail.push({ x: echo.x, y: echo.y });
+          if (echo.trail.length > MAX_TRAIL_RENDER) echo.trail.shift();
+        }
+      }
+
+      if (echo.active && activeEchoRoute) {
+        const pos = getInterpolatedEchoPosition(activeEchoRoute, elapsedRunMs);
+        echo.x = pos.x;
+        echo.y = pos.y;
+      }
+
+      for (let i = 0; i < activeBoostPads.length; i++) {
+        const pad = activeBoostPads[i];
+        if (pad.cooldown <= 0) {
+          const pDist = Math.hypot(player.x - pad.x, player.y - pad.y);
+          const eDist = echo.active ? Math.hypot(echo.x - pad.x, echo.y - pad.y) : Infinity;
+          const triggerDist = pad.radius + BOT_RADIUS;
+
+          if (pDist <= triggerDist && pDist <= eDist) {
+            player.boostTimer = BOOST_DURATION_S;
+            pad.cooldown = pad.maxCooldown;
+          } else if (echo.active && eDist <= triggerDist) {
+            echo.boostTimer = BOOST_DURATION_S;
+            pad.cooldown = pad.maxCooldown;
+          }
+        }
+      }
+
+      for (let i = cells.length - 1; i >= 0; i--) {
+        const c = cells[i];
+        c.pulse += dtSeconds * 4.5;
+
+        const collectRadius = BOT_RADIUS + c.radius;
+        const pDist = Math.hypot(player.x - c.x, player.y - c.y);
+        const eDist = echo.active ? Math.hypot(echo.x - c.x, echo.y - c.y) : Infinity;
+
+        if (pDist <= collectRadius && pDist <= eDist) {
+          player.carried += c.value;
+          if (c.isHighValue) runTelemetry.highCoresCollected += 1;
+          cells.splice(i, 1);
+        } else if (echo.active && eDist <= collectRadius) {
+          echo.carried += c.value;
+          cells.splice(i, 1);
+        }
+      }
+
+      const beacon = activeArena.beacon;
+      const deliveryDist = beacon.radius + BOT_RADIUS * 0.5;
+      if (player.carried > 0 && Math.hypot(player.x - beacon.x, player.y - beacon.y) <= deliveryDist) {
+        player.delivered += player.carried;
+        player.carried = 0;
+        ensureCellsPopulated();
+      }
+
+      if (echo.active && echo.carried > 0 && Math.hypot(echo.x - beacon.x, echo.y - beacon.y) <= deliveryDist) {
+        echo.delivered += echo.carried;
+        echo.carried = 0;
+        ensureCellsPopulated();
+      }
+
+      ensureCellsPopulated();
+      updateHUD();
+
+      if (elapsedRunMs >= RUN_DURATION_MS) {
+        elapsedRunMs = RUN_DURATION_MS;
+        updateHUD();
+        finishRun();
+      }
+    }
+
+    // --- RENDERING LOGIC ---
+    function renderGame() {
+      ctx.fillStyle = '#070b19';
+      ctx.fillRect(0, 0, ARENA_W, ARENA_H);
+
+      ctx.strokeStyle = 'rgba(0, 229, 255, 0.05)';
+      ctx.lineWidth = 1;
+      const gridSize = 45;
+      ctx.beginPath();
+      for (let x = gridSize; x < ARENA_W; x += gridSize) {
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, ARENA_H);
+      }
+      for (let y = gridSize; y < ARENA_H; y += gridSize) {
+        ctx.moveTo(0, y);
+        ctx.lineTo(ARENA_W, y);
+      }
+      ctx.stroke();
+
+      const hazPulse = Math.sin(performance.now() * 0.005) * 3;
+      const hazards = activeArena.hazards;
+      for (let i = 0; i < hazards.length; i++) {
+        const h = hazards[i];
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(h.x, h.y, h.radius + hazPulse, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.11)';
+        ctx.fill();
+        ctx.setLineDash([7, 5]);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.65)';
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = 'rgba(248, 113, 113, 0.65)';
+        ctx.font = 'bold 10px Segoe UI, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('EMP SLOW', h.x, h.y - h.radius + 16);
+        ctx.restore();
+      }
+
+      const padsToDraw = currentState === STATE.RUNNING ? activeBoostPads : activeArena.boostPads;
+      for (let i = 0; i < padsToDraw.length; i++) {
+        const pad = padsToDraw[i];
+        const cd = pad.cooldown || 0;
+        const ready = cd <= 0;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(pad.x, pad.y, pad.radius, 0, Math.PI * 2);
+        ctx.fillStyle = ready ? 'rgba(0, 229, 255, 0.16)' : 'rgba(148, 163, 184, 0.07)';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = ready ? '#00e5ff' : 'rgba(148, 163, 184, 0.3)';
+        ctx.stroke();
+
+        ctx.fillStyle = ready ? '#00e5ff' : '#64748b';
+        ctx.font = 'bold 11px Segoe UI, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(ready ? 'BOOST' : `${cd.toFixed(1)}s`, pad.x, pad.y);
+        ctx.restore();
+      }
+
+      ctx.save();
+      const obs = activeArena.obstacles;
+      for (let i = 0; i < obs.length; i++) {
+        const ob = obs[i];
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+        ctx.strokeRect(ob.x, ob.y, ob.w, ob.h);
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.15)';
+        ctx.strokeRect(ob.x + 5, ob.y + 5, ob.w - 10, ob.h - 10);
+      }
+      ctx.restore();
+
+      const beacon = activeArena.beacon;
+      const pulseOffset = Math.sin(performance.now() * 0.004) * 4;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(beacon.x, beacon.y, beacon.radius + pulseOffset, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(34, 197, 94, 0.14)';
+      ctx.fill();
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = '#22c55e';
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(beacon.x, beacon.y, beacon.radius * 0.65, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(34, 197, 94, 0.45)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.fillStyle = '#4ade80';
+      ctx.font = 'bold 13px Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('DROP', beacon.x, beacon.y);
+      ctx.restore();
+
+      for (let i = 0; i < cells.length; i++) {
+        const c = cells[i];
+        const glowR = c.radius + 4 + Math.sin(c.pulse) * 2.5;
+
+        if (c.isHighValue) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, glowR + 2, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(251, 146, 60, 0.26)';
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
+          ctx.fillStyle = '#fb923c';
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = '#ffedd5';
+          ctx.stroke();
+
+          ctx.fillStyle = '#070b19';
+          ctx.font = 'bold 10px Segoe UI, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('3x', c.x, c.y);
+          ctx.restore();
+        } else {
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, glowR, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(250, 204, 21, 0.22)';
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
+          ctx.fillStyle = '#facc15';
+          ctx.fill();
+          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = '#fef08a';
+          ctx.stroke();
+        }
+      }
+
+      if (echo.active) {
+        const echoColor = echo.isBestEcho ? 'rgba(245, 158, 11, 0.35)' : 'rgba(192, 132, 252, 0.28)';
+        if (echo.trail.length > 1) {
+          ctx.beginPath();
+          ctx.moveTo(echo.trail[0].x, echo.trail[0].y);
+          for (let i = 1; i < echo.trail.length; i++) {
+            ctx.lineTo(echo.trail[i].x, echo.trail[i].y);
+          }
+          ctx.strokeStyle = echoColor;
+          ctx.lineWidth = 3;
+          ctx.stroke();
+        }
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(echo.x, echo.y, BOT_RADIUS + 5, 0, Math.PI * 2);
+        ctx.fillStyle = echo.isBestEcho ? 'rgba(245, 158, 11, 0.25)' : 'rgba(192, 132, 252, 0.22)';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(echo.x, echo.y, BOT_RADIUS, 0, Math.PI * 2);
+        ctx.fillStyle = echo.isBestEcho ? '#d97706' : 'rgba(168, 85, 247, 0.85)';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = echo.isBestEcho ? '#fde68a' : '#e9d5ff';
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 11px Segoe UI, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(echo.isBestEcho ? 'PB' : 'E', echo.x, echo.y);
+
+        if (echo.carried > 0) {
+          ctx.fillStyle = '#e9d5ff';
+          ctx.font = 'bold 11px Segoe UI, sans-serif';
+          ctx.fillText(`+${echo.carried}`, echo.x, echo.y - BOT_RADIUS - 9);
+        }
+        ctx.restore();
+      }
+
+      if (player.trail.length > 1) {
+        ctx.beginPath();
+        ctx.moveTo(player.trail[0].x, player.trail[0].y);
+        for (let i = 1; i < player.trail.length; i++) {
+          ctx.lineTo(player.trail[i].x, player.trail[i].y);
+        }
+        ctx.strokeStyle = player.boostTimer > 0
+          ? 'rgba(56, 189, 248, 0.6)'
+          : 'rgba(0, 229, 255, 0.32)';
+        ctx.lineWidth = player.boostTimer > 0 ? 4 : 3;
+        ctx.stroke();
+      }
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, BOT_RADIUS + (player.boostTimer > 0 ? 8 : 5), 0, Math.PI * 2);
+      ctx.fillStyle = player.inHazard
+        ? 'rgba(239, 68, 68, 0.35)'
+        : 'rgba(0, 229, 255, 0.25)';
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, BOT_RADIUS, 0, Math.PI * 2);
+      ctx.fillStyle = '#00e5ff';
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#cffafe';
+      ctx.stroke();
+
+      ctx.fillStyle = '#041019';
+      ctx.font = 'bold 12px Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('P', player.x, player.y);
+
+      if (player.carried > 0) {
+        ctx.fillStyle = '#facc15';
+        ctx.font = 'bold 11px Segoe UI, sans-serif';
+        ctx.fillText(`+${player.carried}`, player.x, player.y - BOT_RADIUS - 9);
+      }
+      ctx.restore();
+    }
+
+    // --- SINGLE MASTER GAME LOOP ---
+    function gameLoop(timestamp) {
+      if (!lastFrameTimestamp) lastFrameTimestamp = timestamp;
+      let dtSeconds = (timestamp - lastFrameTimestamp) / 1000;
+      lastFrameTimestamp = timestamp;
+
+      if (dtSeconds > 0.1) dtSeconds = 0.1;
+      if (dtSeconds < 0) dtSeconds = 0;
+
+      updateGame(dtSeconds);
+      renderGame();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    // --- INPUT LISTENERS ---
+    window.addEventListener('keydown', (e) => {
+      const code = e.code;
+      if (code === 'KeyW' || code === 'ArrowUp') { keys.up = true; e.preventDefault(); }
+      if (code === 'KeyS' || code === 'ArrowDown') { keys.down = true; e.preventDefault(); }
+      if (code === 'KeyA' || code === 'ArrowLeft') { keys.left = true; e.preventDefault(); }
+      if (code === 'KeyD' || code === 'ArrowRight') { keys.right = true; e.preventDefault(); }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      const code = e.code;
+      if (code === 'KeyW' || code === 'ArrowUp') keys.up = false;
+      if (code === 'KeyS' || code === 'ArrowDown') keys.down = false;
+      if (code === 'KeyA' || code === 'ArrowLeft') keys.left = false;
+      if (code === 'KeyD' || code === 'ArrowRight') keys.right = false;
+    });
+
+    function updatePointerCoords(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      pointer.x = ((clientX - rect.left) / rect.width) * ARENA_W;
+      pointer.y = ((clientY - rect.top) / rect.height) * ARENA_H;
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+      pointer.active = true;
+      updatePointerCoords(e);
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (pointer.active) updatePointerCoords(e);
+    });
+    window.addEventListener('mouseup', () => {
+      pointer.active = false;
+    });
+
+    canvas.addEventListener('touchstart', (e) => {
+      pointer.active = true;
+      updatePointerCoords(e);
+      e.preventDefault();
+    }, { passive: false });
+    canvas.addEventListener('touchmove', (e) => {
+      if (pointer.active) updatePointerCoords(e);
+      e.preventDefault();
+    }, { passive: false });
+    canvas.addEventListener('touchend', () => {
+      pointer.active = false;
+    });
+
+    // --- INITIALIZE ---
+    loadMetaPersistence();
+    refreshMenuUI();
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>

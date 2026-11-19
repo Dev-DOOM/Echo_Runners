@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ECHO RUNNERS — V0.3 (Risk & Reward)</title>
+  <style>
+    :root {
+      --bg-dark: #070b19;
+      --panel-bg: rgba(13, 20, 40, 0.92);
+      --player-blue: #00e5ff;
+      --echo-purple: #c084fc;
+      --cell-yellow: #facc15;
+      --core-orange: #fb923c;
+      --beacon-green: #22c55e;
+      --hazard-red: #ef4444;
+      --text-light: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: #03060c;
+      color: var(--text-light);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    #game-wrapper {
+      position: relative;
+      width: 900px;
+      max-width: 98vw;
+    }
+
+    /* HUD BAR */
+    #hud {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      background: var(--panel-bg);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-bottom: none;
+      padding: 12px 18px;
+      border-radius: 10px 10px 0 0;
+      align-items: center;
+    }
+
+    .hud-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .hud-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+    }
+
+    .hud-value {
+      font-size: 20px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .val-player { color: var(--player-blue); }
+    .val-echo { color: var(--echo-purple); }
+    .val-timer { color: var(--cell-yellow); font-size: 24px; }
+    .val-best { color: var(--beacon-green); }
+
+    /* CANVAS */
+    #canvas-container {
+      position: relative;
+      width: 900px;
+      height: 560px;
+      border: 2px solid rgba(0, 229, 255, 0.25);
+      border-radius: 0 0 10px 10px;
+      overflow: hidden;
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.7);
+      background: var(--bg-dark);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* OVERLAYS (MENU & RESULTS) */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(7, 11, 25, 0.9);
+      backdrop-filter: blur(6px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+      text-align: center;
+      z-index: 10;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    h1 {
+      font-size: 44px;
+      font-weight: 900;
+      letter-spacing: 3px;
+      color: var(--player-blue);
+      text-shadow: 0 0 20px rgba(0, 229, 255, 0.5);
+      margin-bottom: 6px;
+    }
+
+    .version-badge {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      background: rgba(251, 146, 60, 0.18);
+      color: var(--core-orange);
+      border: 1px solid rgba(251, 146, 60, 0.4);
+      padding: 4px 10px;
+      border-radius: 99px;
+      margin-bottom: 12px;
+    }
+
+    .tagline {
+      font-size: 15px;
+      color: var(--text-muted);
+      margin-bottom: 18px;
+    }
+
+    .info-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 16px 22px;
+      margin-bottom: 20px;
+      max-width: 580px;
+      line-height: 1.55;
+      font-size: 13.5px;
+      color: #cbd5e1;
+      text-align: left;
+    }
+
+    .legend-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 16px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 12.5px;
+    }
+
+    .score-comparison {
+      display: flex;
+      gap: 32px;
+      margin: 14px 0 22px;
+    }
+
+    .score-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      padding: 16px 28px;
+      min-width: 195px;
+    }
+
+    .score-card h3 {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+
+    .score-card .big-score {
+      font-size: 36px;
+      font-weight: 900;
+      margin-bottom: 6px;
+    }
+
+    .score-card .breakdown {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .winner-banner {
+      font-size: 21px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      padding: 8px 20px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 14px;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 6px;
+      padding: 13px 28px;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    button:active {
+      transform: scale(0.97);
+    }
+
+    .btn-primary {
+      background: var(--player-blue);
+      color: #041019;
+      box-shadow: 0 0 18px rgba(0, 229, 255, 0.4);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 0 25px rgba(0, 229, 255, 0.7);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-light);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    .status-pill {
+      margin-top: 14px;
+      font-size: 12px;
+      color: var(--echo-purple);
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-wrapper">
+    <!-- TOP HUD -->
+    <div id="hud">
+      <div class="hud-box">
+        <span class="hud-label">Player Score</span>
+        <span class="hud-value val-player" id="hud-player-score">0</span>
+      </div>
+      <div class="hud-box">
+        <span class="hud-label">Carried / Delivered</span>
+        <span class="hud-value val-player" id="hud-player-cells">0 / 0</span>
+      </div>
+      <div class="hud-box">
+        <span class="hud-label">Time Remaining</span>
+        <span class="hud-value val-timer" id="hud-timer">45.0s</span>
+      </div>
+      <div class="hud-box">
+        <span class="hud-label">Echo Score (C / D)</span>
+        <span class="hud-value val-echo" id="hud-echo-score">0 (0/0)</span>
+      </div>
+      <div class="hud-box">
+        <span class="hud-label">Best Score</span>
+        <span class="hud-value val-best" id="hud-best-score">0</span>
+      </div>
+    </div>
+
+    <!-- MAIN CANVAS & OVERLAYS -->
+    <div id="canvas-container">
+      <canvas id="game-canvas" width="900" height="560"></canvas>
+
+      <!-- START MENU OVERLAY -->
+      <div id="menu-screen" class="overlay">
+        <div class="version-badge">V0.3 — Risk & Reward Update</div>
+        <h1>ECHO RUNNERS</h1>
+        <p class="tagline">Race against your past. Outsmart your old route. Master the risk.</p>
+        <div class="info-card">
+          <strong>CORE LOOP:</strong> Collect cells and bank them at the green <strong>DROP Beacon</strong> before the 45s timer runs out. Your purple <strong>Echo Rival</strong> replays your previous route and competes for the exact same items!
+          <div class="legend-grid">
+            <div><strong style="color:#facc15;">● Yellow Cell:</strong> +1 Cargo (100 pts)</div>
+            <div><strong style="color:#fb923c;">◆ Orange Core:</strong> +3 Cargo (300 pts)</div>
+            <div><strong style="color:#00e5ff;">» Cyan Boost Pad:</strong> 1.45x Speed (2.5s)</div>
+            <div><strong style="color:#ef4444;">▨ Red EMP Zone:</strong> Shortcut (Slows 45%)</div>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn-primary" id="btn-start">START RUN (45s)</button>
+          <button class="btn-secondary" id="btn-reset-menu">RESET ECHO</button>
+        </div>
+        <div class="status-pill" id="menu-echo-status">Checking Echo memory...</div>
+      </div>
+
+      <!-- END-OF-RUN RESULTS OVERLAY -->
+      <div id="results-screen" class="overlay hidden">
+        <h1 style="font-size: 34px;">RUN COMPLETE</h1>
+        <div class="winner-banner" id="results-winner-msg">You beat the Echo!</div>
+
+        <div class="score-comparison">
+          <div class="score-card" style="border-color: rgba(0,229,255,0.4);">
+            <h3 class="val-player">Player (You)</h3>
+            <div class="big-score val-player" id="res-player-score">0</div>
+            <div class="breakdown" id="res-player-breakdown">Delivered: 0 | Carried: 0</div>
+          </div>
+
+          <div class="score-card" style="border-color: rgba(192,132,252,0.4);">
+            <h3 class="val-echo">Echo Rival</h3>
+            <div class="big-score val-echo" id="res-echo-score">0</div>
+            <div class="breakdown" id="res-echo-breakdown">Delivered: 0 | Carried: 0</div>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn-primary" id="btn-run-again">RUN AGAIN (RACE NEW ECHO)</button>
+          <button class="btn-secondary" id="btn-reset-results">RESET ECHO</button>
+        </div>
+        <div class="status-pill" id="results-echo-status">Your route has been saved as the new Echo rival.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * ECHO RUNNERS — V0.3 (Risk & Reward Gameplay)
+     * Builds directly on V0.2 FIXED:
+     * - Solid arena obstacles (walls) creating safe outer paths vs inner shortcuts.
+     * - Central EMP Slow Hazard Zone along the direct shortcut to the DROP beacon.
+     * - High-Value Energy Cores (+3 cargo / 300 pts delivered) in high-risk zones.
+     * - Shared Speed Boost Pads with cooldowns that both Player and Echo can trigger.
+     */
+
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+
+    // --- CONSTANTS ---
+    const ARENA_W = 900;
+    const ARENA_H = 560;
+    const RUN_DURATION_MS = 45000;
+    const SAMPLE_INTERVAL_MS = 70;
+    const MAX_TRAIL_RENDER = 160;
+
+    const BASE_PLAYER_SPEED = 250;
+    const BOOST_MULTIPLIER = 1.45;
+    const BOOST_DURATION_S = 2.5;
+    const HAZARD_SLOW_MULT = 0.55;
+
+    const BOT_RADIUS = 14;
+    const CELL_RADIUS = 8;
+    const CORE_RADIUS = 12;
+
+    const TARGET_NORMAL_CELLS = 10;
+    const TARGET_HIGH_CORES = 2;
+
+    const BEACON = {
+      x: 810,
+      y: 85,
+      radius: 44
+    };
+
+    // V0.3 Obstacles (Solid Walls)
+    const OBSTACLES = [
+      { x: 270, y: 150, w: 36, h: 250 }, // Left-center vertical barrier
+      { x: 520, y: 240, w: 230, h: 36 }  // Right-center horizontal barrier
+    ];
+
+    // V0.3 Risky Shortcut Hazard Zone (EMP Slow Field)
+    const HAZARD_ZONE = {
+      x: 565,
+      y: 135,
+      radius: 68
+    };
+
+    // V0.3 Speed Boost Pads
+    const BOOST_PADS = [
+      { x: 160, y: 110, radius: 22, cooldown: 0, maxCooldown: 6.0 },
+      { x: 740, y: 430, radius: 22, cooldown: 0, maxCooldown: 6.0 }
+    ];
+
+    // High-Risk Spawn Anchors for High-Value Cores (+3 Value)
+    const HIGH_VALUE_ANCHORS = [
+      { x: 105, y: 475 }, // Deep bottom-left Vault Corner (furthest from Beacon)
+      { x: 565, y: 135 }, // Dead-center inside the EMP Hazard Shortcut
+      { x: 420, y: 485 }  // Bottom-mid corridor behind walls
+    ];
+
+    const STORAGE_KEYS = {
+      BEST_SCORE: 'echo_runners_v03_best_score',
+      ECHO_ROUTE: 'echo_runners_v03_echo_route'
+    };
+
+    // --- STATE ---
+    const STATE = {
+      MENU: 'MENU',
+      RUNNING: 'RUNNING',
+      RESULTS: 'RESULTS'
+    };
+
+    let currentState = STATE.MENU;
+    let lastFrameTimestamp = 0;
+    let elapsedRunMs = 0;
+    let nextSampleMs = 0;
+
+    let bestScore = 0;
+    let savedEchoRoute = null;
+    let currentRecordedRoute = [];
+
+    const player = {
+      x: 430,
+      y: 310,
+      carried: 0,
+      delivered: 0,
+      score: 0,
+      boostTimer: 0,
+      inHazard: false,
+      trail: []
+    };
+
+    const echo = {
+      active: false,
+      x: 430,
+      y: 310,
+      carried: 0,
+      delivered: 0,
+      score: 0,
+      boostTimer: 0,
+      trail: []
+    };
+
+    let cells = []; // { x, y, value: 1 | 3, radius, isHighValue, pulse }
+
+    // Input state
+    const keys = { up: false, down: false, left: false, right: false };
+    const pointer = { active: false, x: 0, y: 0 };
+
+    // --- DOM REFERENCES ---
+    const hudPlayerScore = document.getElementById('hud-player-score');
+    const hudPlayerCells = document.getElementById('hud-player-cells');
+    const hudTimer = document.getElementById('hud-timer');
+    const hudEchoScore = document.getElementById('hud-echo-score');
+    const hudBestScore = document.getElementById('hud-best-score');
+
+    const menuScreen = document.getElementById('menu-screen');
+    const resultsScreen = document.getElementById('results-screen');
+    const menuEchoStatus = document.getElementById('menu-echo-status');
+    const resultsEchoStatus = document.getElementById('results-echo-status');
+    const resultsWinnerMsg = document.getElementById('results-winner-msg');
+
+    const resPlayerScore = document.getElementById('res-player-score');
+    const resPlayerBreakdown = document.getElementById('res-player-breakdown');
+    const resEchoScore = document.getElementById('res-echo-score');
+    const resEchoBreakdown = document.getElementById('res-echo-breakdown');
+
+    // --- STORAGE & VALIDATION ---
+    function loadPersistedData() {
+      try {
+        const rawBest = localStorage.getItem(STORAGE_KEYS.BEST_SCORE);
+        if (rawBest !== null) {
+          const parsedBest = parseInt(rawBest, 10);
+          if (!isNaN(parsedBest) && parsedBest >= 0) bestScore = parsedBest;
+        }
+      } catch (e) {
+        bestScore = 0;
+      }
+
+      savedEchoRoute = loadValidatedEchoRoute();
+      updateMenuStatusText();
+      hudBestScore.textContent = bestScore;
+    }
+
+    function loadValidatedEchoRoute() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEYS.ECHO_ROUTE);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed) || parsed.length < 2) return null;
+
+        const clean = [];
+        let lastT = -1;
+        for (let i = 0; i < parsed.length; i++) {
+          const pt = parsed[i];
+          if (
+            pt &&
+            typeof pt.t === 'number' && !isNaN(pt.t) &&
+            typeof pt.x === 'number' && !isNaN(pt.x) &&
+            typeof pt.y === 'number' && !isNaN(pt.y)
+          ) {
+            const clampedT = Math.max(0, Math.min(RUN_DURATION_MS + 1000, pt.t));
+            if (clampedT >= lastT) {
+              clean.push({
+                t: Math.round(clampedT),
+                x: Math.max(BOT_RADIUS, Math.min(ARENA_W - BOT_RADIUS, pt.x)),
+                y: Math.max(BOT_RADIUS, Math.min(ARENA_H - BOT_RADIUS, pt.y))
+              });
+              lastT = clampedT;
+            }
+          }
+        }
+        return clean.length >= 2 ? clean : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function saveEchoRoute(routeArray) {
+      if (!Array.isArray(routeArray) || routeArray.length < 2) return;
+      savedEchoRoute = routeArray;
+      try {
+        localStorage.setItem(STORAGE_KEYS.ECHO_ROUTE, JSON.stringify(routeArray));
+      } catch (e) {}
+    }
+
+    function resetEchoData() {
+      savedEchoRoute = null;
+      try {
+        localStorage.removeItem(STORAGE_KEYS.ECHO_ROUTE);
+      } catch (e) {}
+      updateMenuStatusText();
+      resultsEchoStatus.textContent = 'Echo memory cleared! Next run will have no Echo rival.';
+    }
+
+    function updateMenuStatusText() {
+      if (savedEchoRoute && savedEchoRoute.length >= 2) {
+        menuEchoStatus.textContent = `Echo Rival Active (${savedEchoRoute.length} motion samples loaded)`;
+      } else {
+        menuEchoStatus.textContent = 'No Echo recorded for V0.3 Arena yet — Run #1 will record your first Echo!';
+      }
+    }
+
+    // --- GEOMETRY & COLLISION HELPERS ---
+    function circleIntersectsRect(cx, cy, cr, rect) {
+      const closestX = Math.max(rect.x, Math.min(cx, rect.x + rect.w));
+      const closestY = Math.max(rect.y, Math.min(cy, rect.y + rect.h));
+      const dx = cx - closestX;
+      const dy = cy - closestY;
+      return (dx * dx + dy * dy) < (cr * cr);
+    }
+
+    function isPointBlockedByObstacle(x, y, margin) {
+      for (let i = 0; i < OBSTACLES.length; i++) {
+        if (circleIntersectsRect(x, y, margin, OBSTACLES[i])) return true;
+      }
+      return false;
+    }
+
+    function resolveCircleObstacleCollision(entity, radius) {
+      for (let i = 0; i < OBSTACLES.length; i++) {
+        const r = OBSTACLES[i];
+        const closestX = Math.max(r.x, Math.min(entity.x, r.x + r.w));
+        const closestY = Math.max(r.y, Math.min(entity.y, r.y + r.h));
+        let dx = entity.x - closestX;
+        let dy = entity.y - closestY;
+        const distSq = dx * dx + dy * dy;
+
+        if (distSq < radius * radius) {
+          const dist = Math.sqrt(distSq);
+          if (dist > 0.0001) {
+            const overlap = radius - dist;
+            entity.x += (dx / dist) * overlap;
+            entity.y += (dy / dist) * overlap;
+          } else {
+            // Inside rect fallback: push out nearest edge
+            const leftPen = Math.abs(entity.x - r.x);
+            const rightPen = Math.abs((r.x + r.w) - entity.x);
+            const topPen = Math.abs(entity.y - r.y);
+            const botPen = Math.abs((r.y + r.h) - entity.y);
+            const minPen = Math.min(leftPen, rightPen, topPen, botPen);
+            if (minPen === leftPen) entity.x = r.x - radius;
+            else if (minPen === rightPen) entity.x = r.x + r.w + radius;
+            else if (minPen === topPen) entity.y = r.y - radius;
+            else entity.y = r.y + r.h + radius;
+          }
+        }
+      }
+    }
+
+    // --- BINARY SEARCH INTERPOLATION FOR ECHO ---
+    function getInterpolatedEchoPosition(route, elapsedMs) {
+      const n = route.length;
+      if (n === 0) return { x: 430, y: 310 };
+      if (elapsedMs <= route[0].t) return { x: route[0].x, y: route[0].y };
+      if (elapsedMs >= route[n - 1].t) return { x: route[n - 1].x, y: route[n - 1].y };
+
+      let lo = 0;
+      let hi = n - 1;
+      while (lo <= hi) {
+        const mid = (lo + hi) >>> 1;
+        if (route[mid].t < elapsedMs) {
+          lo = mid + 1;
+        } else if (route[mid].t > elapsedMs) {
+          hi = mid - 1;
+        } else {
+          return { x: route[mid].x, y: route[mid].y };
+        }
+      }
+
+      const idx0 = Math.max(0, hi);
+      const idx1 = Math.min(n - 1, lo);
+      const s0 = route[idx0];
+      const s1 = route[idx1];
+
+      const span = s1.t - s0.t;
+      if (span <= 0) return { x: s0.x, y: s0.y };
+
+      const alpha = (elapsedMs - s0.t) / span;
+      return {
+        x: s0.x + (s1.x - s0.x) * alpha,
+        y: s0.y + (s1.y - s0.y) * alpha
+      };
+    }
+
+    // --- COLLECTIBLE SPAWNING (NORMAL & HIGH-VALUE CORES) ---
+    function spawnNormalCell() {
+      const margin = 36;
+      for (let attempt = 0; attempt < 35; attempt++) {
+        const x = margin + Math.random() * (ARENA_W - margin * 2);
+        const y = margin + Math.random() * (ARENA_H - margin * 2);
+
+        if (isPointBlockedByObstacle(x, y, CELL_RADIUS + 14)) continue;
+        if (Math.hypot(x - BEACON.x, y - BEACON.y) < BEACON.radius + 45) continue;
+        if (Math.hypot(x - player.x, y - player.y) < 55) continue;
+
+        let tooClose = false;
+        for (let i = 0; i < cells.length; i++) {
+          if (Math.hypot(x - cells[i].x, y - cells[i].y) < 38) {
+            tooClose = true;
+            break;
+          }
+        }
+        if (!tooClose) {
+          cells.push({
+            x,
+            y,
+            value: 1,
+            radius: CELL_RADIUS,
+            isHighValue: false,
+            pulse: Math.random() * Math.PI * 2
+          });
+          return;
+        }
+      }
+    }
+
+    function spawnHighValueCore() {
+      // Pick one of the strategic risk anchors that doesn't already have a core
+      const shuffled = [...HIGH_VALUE_ANCHORS].sort(() => Math.random() - 0.5);
+      for (let i = 0; i < shuffled.length; i++) {
+        const anchor = shuffled[i];
+        const jitterX = anchor.x + (Math.random() - 0.5) * 36;
+        const jitterY = anchor.y + (Math.random() - 0.5) * 36;
+
+        if (isPointBlockedByObstacle(jitterX, jitterY, CORE_RADIUS + 10)) continue;
+
+        let occupied = false;
+        for (let j = 0; j < cells.length; j++) {
+          if (Math.hypot(jitterX - cells[j].x, jitterY - cells[j].y) < 42) {
+            occupied = true;
+            break;
+          }
+        }
+        if (!occupied) {
+          cells.push({
+            x: jitterX,
+            y: jitterY,
+            value: 3,
+            radius: CORE_RADIUS,
+            isHighValue: true,
+            pulse: Math.random() * Math.PI * 2
+          });
+          return;
+        }
+      }
+    }
+
+    function ensureCellsPopulated() {
+      let normalCount = 0;
+      let highCount = 0;
+      for (let i = 0; i < cells.length; i++) {
+        if (cells[i].isHighValue) highCount++;
+        else normalCount++;
+      }
+
+      while (highCount < TARGET_HIGH_CORES) {
+        const before = cells.length;
+        spawnHighValueCore();
+        if (cells.length === before) break;
+        highCount++;
+      }
+
+      while (normalCount < TARGET_NORMAL_CELLS) {
+        const before = cells.length;
+        spawnNormalCell();
+        if (cells.length === before) break;
+        normalCount++;
+      }
+    }
+
+    // --- SCORING FORMULA ---
+    function computeScore(delivered, carried) {
+      return delivered * 100 + carried * 15;
+    }
+
+    function updateHUD() {
+      player.score = computeScore(player.delivered, player.carried);
+      echo.score = computeScore(echo.delivered, echo.carried);
+
+      hudPlayerScore.textContent = player.score;
+      hudPlayerCells.textContent = `${player.carried} / ${player.delivered}`;
+
+      const remainingSec = Math.max(0, (RUN_DURATION_MS - elapsedRunMs) / 1000);
+      hudTimer.textContent = `${remainingSec.toFixed(1)}s`;
+
+      if (echo.active) {
+        hudEchoScore.textContent = `${echo.score} (${echo.carried}/${echo.delivered})`;
+      } else {
+        hudEchoScore.textContent = `NONE`;
+      }
+
+      if (player.score > bestScore) {
+        bestScore = player.score;
+        hudBestScore.textContent = bestScore;
+      }
+    }
+
+    // --- RUN LIFECYCLE ---
+    function startRun() {
+      elapsedRunMs = 0;
+      nextSampleMs = 0;
+
+      // Reset Player at safe central spawn
+      player.x = 430;
+      player.y = 310;
+      player.carried = 0;
+      player.delivered = 0;
+      player.score = 0;
+      player.boostTimer = 0;
+      player.inHazard = false;
+      player.trail = [{ x: player.x, y: player.y }];
+
+      // Reset Boost Pads
+      for (let i = 0; i < BOOST_PADS.length; i++) {
+        BOOST_PADS[i].cooldown = 0;
+      }
+
+      // Initialize Route Recording
+      currentRecordedRoute = [{ t: 0, x: Math.round(player.x), y: Math.round(player.y) }];
+      nextSampleMs = SAMPLE_INTERVAL_MS;
+
+      // Setup Echo
+      if (savedEchoRoute && savedEchoRoute.length >= 2) {
+        echo.active = true;
+        echo.x = savedEchoRoute[0].x;
+        echo.y = savedEchoRoute[0].y;
+        echo.carried = 0;
+        echo.delivered = 0;
+        echo.score = 0;
+        echo.boostTimer = 0;
+        echo.trail = [{ x: echo.x, y: echo.y }];
+      } else {
+        echo.active = false;
+        echo.x = 430;
+        echo.y = 310;
+        echo.carried = 0;
+        echo.delivered = 0;
+        echo.score = 0;
+        echo.boostTimer = 0;
+        echo.trail = [];
+      }
+
+      cells = [];
+      ensureCellsPopulated();
+
+      menuScreen.classList.add('hidden');
+      resultsScreen.classList.add('hidden');
+      currentState = STATE.RUNNING;
+      updateHUD();
+    }
+
+    function finishRun() {
+      currentState = STATE.RESULTS;
+
+      currentRecordedRoute.push({
+        t: RUN_DURATION_MS,
+        x: Math.round(player.x),
+        y: Math.round(player.y)
+      });
+
+      player.score = computeScore(player.delivered, player.carried);
+      echo.score = computeScore(echo.delivered, echo.carried);
+
+      const isNewBest = player.score > bestScore;
+      if (player.score >= bestScore) {
+        bestScore = player.score;
+        try {
+          localStorage.setItem(STORAGE_KEYS.BEST_SCORE, String(bestScore));
+        } catch (e) {}
+      }
+      hudBestScore.textContent = bestScore;
+
+      resPlayerScore.textContent = player.score;
+      resPlayerBreakdown.textContent = `Delivered: ${player.delivered} | Carried: ${player.carried}`;
+
+      if (echo.active) {
+        resEchoScore.textContent = echo.score;
+        resEchoBreakdown.textContent = `Delivered: ${echo.delivered} | Carried: ${echo.carried}`;
+
+        if (player.score > echo.score) {
+          resultsWinnerMsg.textContent = isNewBest ? 'You beat the Echo! New Personal Best!' : 'You beat the Echo!';
+          resultsWinnerMsg.style.color = '#22c55e';
+        } else if (player.score < echo.score) {
+          resultsWinnerMsg.textContent = 'The Echo wins this run.';
+          resultsWinnerMsg.style.color = '#c084fc';
+        } else {
+          resultsWinnerMsg.textContent = 'Exact Tie with your Echo!';
+          resultsWinnerMsg.style.color = '#facc15';
+        }
+      } else {
+        resEchoScore.textContent = '—';
+        resEchoBreakdown.textContent = 'First Run (No Rival Yet)';
+        resultsWinnerMsg.textContent = 'First V0.3 Echo Recorded! Ready for Run #2.';
+        resultsWinnerMsg.style.color = '#00e5ff';
+      }
+
+      saveEchoRoute(currentRecordedRoute);
+      resultsEchoStatus.textContent = `Your route (${currentRecordedRoute.length} samples) is now the active Echo rival!`;
+      resultsScreen.classList.remove('hidden');
+    }
+
+    // --- UPDATE LOGIC ---
+    function updateGame(dtSeconds) {
+      if (currentState !== STATE.RUNNING) return;
+
+      elapsedRunMs += dtSeconds * 1000;
+
+      // Update timers & pad cooldowns
+      if (player.boostTimer > 0) player.boostTimer = Math.max(0, player.boostTimer - dtSeconds);
+      if (echo.boostTimer > 0) echo.boostTimer = Math.max(0, echo.boostTimer - dtSeconds);
+
+      for (let i = 0; i < BOOST_PADS.length; i++) {
+        if (BOOST_PADS[i].cooldown > 0) {
+          BOOST_PADS[i].cooldown = Math.max(0, BOOST_PADS[i].cooldown - dtSeconds);
+        }
+      }
+
+      // Check Hazard Zone status for Player
+      const distToHazard = Math.hypot(player.x - HAZARD_ZONE.x, player.y - HAZARD_ZONE.y);
+      player.inHazard = distToHazard <= (HAZARD_ZONE.radius + BOT_RADIUS * 0.4);
+
+      // Calculate effective Player Speed
+      let currentSpeed = BASE_PLAYER_SPEED;
+      if (player.boostTimer > 0) currentSpeed *= BOOST_MULTIPLIER;
+      if (player.inHazard) currentSpeed *= HAZARD_SLOW_MULT;
+
+      // 1. Player Input & Normalized Velocity
+      let vx = 0;
+      let vy = 0;
+      if (keys.left) vx -= 1;
+      if (keys.right) vx += 1;
+      if (keys.up) vy -= 1;
+      if (keys.down) vy += 1;
+
+      if (vx !== 0 || vy !== 0) {
+        const len = Math.hypot(vx, vy);
+        vx /= len;
+        vy /= len;
+      } else if (pointer.active) {
+        const dx = pointer.x - player.x;
+        const dy = pointer.y - player.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 6) {
+          vx = dx / dist;
+          vy = dy / dist;
+        }
+      }
+
+      player.x += vx * currentSpeed * dtSeconds;
+      player.y += vy * currentSpeed * dtSeconds;
+
+      // Clamp to Arena & Resolve Wall Obstacles
+      player.x = Math.max(BOT_RADIUS, Math.min(ARENA_W - BOT_RADIUS, player.x));
+      player.y = Math.max(BOT_RADIUS, Math.min(ARENA_H - BOT_RADIUS, player.y));
+      resolveCircleObstacleCollision(player, BOT_RADIUS);
+
+      // 2. Route Recording (70ms interval)
+      if (elapsedRunMs >= nextSampleMs) {
+        currentRecordedRoute.push({
+          t: Math.round(elapsedRunMs),
+          x: Math.round(player.x),
+          y: Math.round(player.y)
+        });
+        nextSampleMs += SAMPLE_INTERVAL_MS;
+
+        player.trail.push({ x: player.x, y: player.y });
+        if (player.trail.length > MAX_TRAIL_RENDER) player.trail.shift();
+
+        if (echo.active) {
+          echo.trail.push({ x: echo.x, y: echo.y });
+          if (echo.trail.length > MAX_TRAIL_RENDER) echo.trail.shift();
+        }
+      }
+
+      // 3. Echo Playback via Timestamp Interpolation
+      if (echo.active && savedEchoRoute) {
+        const pos = getInterpolatedEchoPosition(savedEchoRoute, elapsedRunMs);
+        echo.x = pos.x;
+        echo.y = pos.y;
+      }
+
+      // 4. Boost Pad Collisions (Shared tactical pads)
+      for (let i = 0; i < BOOST_PADS.length; i++) {
+        const pad = BOOST_PADS[i];
+        if (pad.cooldown <= 0) {
+          const pDist = Math.hypot(player.x - pad.x, player.y - pad.y);
+          const eDist = echo.active ? Math.hypot(echo.x - pad.x, echo.y - pad.y) : Infinity;
+          const triggerDist = pad.radius + BOT_RADIUS;
+
+          if (pDist <= triggerDist && pDist <= eDist) {
+            player.boostTimer = BOOST_DURATION_S;
+            pad.cooldown = pad.maxCooldown;
+          } else if (echo.active && eDist <= triggerDist) {
+            echo.boostTimer = BOOST_DURATION_S;
+            pad.cooldown = pad.maxCooldown;
+          }
+        }
+      }
+
+      // 5. Shared Collectible Collisions (Normal Cells + High-Value Cores)
+      for (let i = cells.length - 1; i >= 0; i--) {
+        const c = cells[i];
+        c.pulse += dtSeconds * 4.5;
+
+        const collectRadius = BOT_RADIUS + c.radius;
+        const pDist = Math.hypot(player.x - c.x, player.y - c.y);
+        const eDist = echo.active ? Math.hypot(echo.x - c.x, echo.y - c.y) : Infinity;
+
+        if (pDist <= collectRadius && pDist <= eDist) {
+          player.carried += c.value;
+          cells.splice(i, 1);
+        } else if (echo.active && eDist <= collectRadius) {
+          echo.carried += c.value;
+          cells.splice(i, 1);
+        }
+      }
+
+      // 6. Extraction Beacon Delivery
+      const deliveryDist = BEACON.radius + BOT_RADIUS * 0.5;
+      if (player.carried > 0 && Math.hypot(player.x - BEACON.x, player.y - BEACON.y) <= deliveryDist) {
+        player.delivered += player.carried;
+        player.carried = 0;
+        ensureCellsPopulated();
+      }
+
+      if (echo.active && echo.carried > 0 && Math.hypot(echo.x - BEACON.x, echo.y - BEACON.y) <= deliveryDist) {
+        echo.delivered += echo.carried;
+        echo.carried = 0;
+        ensureCellsPopulated();
+      }
+
+      ensureCellsPopulated();
+      updateHUD();
+
+      // 7. Timer Completion
+      if (elapsedRunMs >= RUN_DURATION_MS) {
+        elapsedRunMs = RUN_DURATION_MS;
+        updateHUD();
+        finishRun();
+      }
+    }
+
+    // --- RENDERING LOGIC ---
+    function renderGame() {
+      // 1. Background
+      ctx.fillStyle = '#070b19';
+      ctx.fillRect(0, 0, ARENA_W, ARENA_H);
+
+      // 2. Grid
+      ctx.strokeStyle = 'rgba(0, 229, 255, 0.05)';
+      ctx.lineWidth = 1;
+      const gridSize = 45;
+      ctx.beginPath();
+      for (let x = gridSize; x < ARENA_W; x += gridSize) {
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, ARENA_H);
+      }
+      for (let y = gridSize; y < ARENA_H; y += gridSize) {
+        ctx.moveTo(0, y);
+        ctx.lineTo(ARENA_W, y);
+      }
+      ctx.stroke();
+
+      // 3. EMP Slow Hazard Shortcut Zone
+      const hazPulse = Math.sin(performance.now() * 0.005) * 3;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(HAZARD_ZONE.x, HAZARD_ZONE.y, HAZARD_ZONE.radius + hazPulse, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.11)';
+      ctx.fill();
+      ctx.setLineDash([7, 5]);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.65)';
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = 'rgba(248, 113, 113, 0.65)';
+      ctx.font = 'bold 11px Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('EMP SLOW ZONE', HAZARD_ZONE.x, HAZARD_ZONE.y - HAZARD_ZONE.radius + 18);
+      ctx.restore();
+
+      // 4. Boost Pads
+      for (let i = 0; i < BOOST_PADS.length; i++) {
+        const pad = BOOST_PADS[i];
+        const ready = pad.cooldown <= 0;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(pad.x, pad.y, pad.radius, 0, Math.PI * 2);
+        ctx.fillStyle = ready ? 'rgba(0, 229, 255, 0.16)' : 'rgba(148, 163, 184, 0.07)';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = ready ? '#00e5ff' : 'rgba(148, 163, 184, 0.3)';
+        ctx.stroke();
+
+        ctx.fillStyle = ready ? '#00e5ff' : '#64748b';
+        ctx.font = 'bold 11px Segoe UI, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(ready ? 'BOOST' : `${pad.cooldown.toFixed(1)}s`, pad.x, pad.y);
+        ctx.restore();
+      }
+
+      // 5. Solid Wall Obstacles
+      ctx.save();
+      for (let i = 0; i < OBSTACLES.length; i++) {
+        const ob = OBSTACLES[i];
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+        ctx.strokeRect(ob.x, ob.y, ob.w, ob.h);
+
+        // Inner tech hatch line
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.15)';
+        ctx.strokeRect(ob.x + 5, ob.y + 5, ob.w - 10, ob.h - 10);
+      }
+      ctx.restore();
+
+      // 6. Extraction Beacon
+      const pulseOffset = Math.sin(performance.now() * 0.004) * 4;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(BEACON.x, BEACON.y, BEACON.radius + pulseOffset, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(34, 197, 94, 0.14)';
+      ctx.fill();
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = '#22c55e';
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(BEACON.x, BEACON.y, BEACON.radius * 0.65, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(34, 197, 94, 0.45)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.fillStyle = '#4ade80';
+      ctx.font = 'bold 13px Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('DROP', BEACON.x, BEACON.y);
+      ctx.restore();
+
+      // 7. Energy Cells & High-Value Cores
+      for (let i = 0; i < cells.length; i++) {
+        const c = cells[i];
+        const glowR = c.radius + 4 + Math.sin(c.pulse) * 2.5;
+
+        if (c.isHighValue) {
+          // Orange High-Value Core (+3)
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, glowR + 2, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(251, 146, 60, 0.26)';
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
+          ctx.fillStyle = '#fb923c';
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = '#ffedd5';
+          ctx.stroke();
+
+          ctx.fillStyle = '#070b19';
+          ctx.font = 'bold 10px Segoe UI, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('3x', c.x, c.y);
+          ctx.restore();
+        } else {
+          // Standard Yellow Cell (+1)
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, glowR, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(250, 204, 21, 0.22)';
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
+          ctx.fillStyle = '#facc15';
+          ctx.fill();
+          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = '#fef08a';
+          ctx.stroke();
+        }
+      }
+
+      // 8. Echo Trail & Character
+      if (echo.active) {
+        if (echo.trail.length > 1) {
+          ctx.beginPath();
+          ctx.moveTo(echo.trail[0].x, echo.trail[0].y);
+          for (let i = 1; i < echo.trail.length; i++) {
+            ctx.lineTo(echo.trail[i].x, echo.trail[i].y);
+          }
+          ctx.strokeStyle = 'rgba(192, 132, 252, 0.28)';
+          ctx.lineWidth = 3;
+          ctx.stroke();
+        }
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(echo.x, echo.y, BOT_RADIUS + 5, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(192, 132, 252, 0.22)';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(echo.x, echo.y, BOT_RADIUS, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(168, 85, 247, 0.85)';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#e9d5ff';
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 12px Segoe UI, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('E', echo.x, echo.y);
+
+        if (echo.carried > 0) {
+          ctx.fillStyle = '#e9d5ff';
+          ctx.font = 'bold 11px Segoe UI, sans-serif';
+          ctx.fillText(`+${echo.carried}`, echo.x, echo.y - BOT_RADIUS - 9);
+        }
+        ctx.restore();
+      }
+
+      // 9. Player Trail & Character
+      if (player.trail.length > 1) {
+        ctx.beginPath();
+        ctx.moveTo(player.trail[0].x, player.trail[0].y);
+        for (let i = 1; i < player.trail.length; i++) {
+          ctx.lineTo(player.trail[i].x, player.trail[i].y);
+        }
+        ctx.strokeStyle = player.boostTimer > 0
+          ? 'rgba(56, 189, 248, 0.6)'
+          : 'rgba(0, 229, 255, 0.32)';
+        ctx.lineWidth = player.boostTimer > 0 ? 4 : 3;
+        ctx.stroke();
+      }
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, BOT_RADIUS + (player.boostTimer > 0 ? 8 : 5), 0, Math.PI * 2);
+      ctx.fillStyle = player.inHazard
+        ? 'rgba(239, 68, 68, 0.35)'
+        : 'rgba(0, 229, 255, 0.25)';
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, BOT_RADIUS, 0, Math.PI * 2);
+      ctx.fillStyle = '#00e5ff';
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#cffafe';
+      ctx.stroke();
+
+      ctx.fillStyle = '#041019';
+      ctx.font = 'bold 12px Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('P', player.x, player.y);
+
+      if (player.carried > 0) {
+        ctx.fillStyle = '#facc15';
+        ctx.font = 'bold 11px Segoe UI, sans-serif';
+        ctx.fillText(`+${player.carried}`, player.x, player.y - BOT_RADIUS - 9);
+      }
+      ctx.restore();
+    }
+
+    // --- SINGLE MASTER GAME LOOP ---
+    function gameLoop(timestamp) {
+      if (!lastFrameTimestamp) lastFrameTimestamp = timestamp;
+      let dtSeconds = (timestamp - lastFrameTimestamp) / 1000;
+      lastFrameTimestamp = timestamp;
+
+      if (dtSeconds > 0.1) dtSeconds = 0.1;
+      if (dtSeconds < 0) dtSeconds = 0;
+
+      updateGame(dtSeconds);
+      renderGame();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    // --- INPUT LISTENERS ---
+    window.addEventListener('keydown', (e) => {
+      const code = e.code;
+      if (code === 'KeyW' || code === 'ArrowUp') { keys.up = true; e.preventDefault(); }
+      if (code === 'KeyS' || code === 'ArrowDown') { keys.down = true; e.preventDefault(); }
+      if (code === 'KeyA' || code === 'ArrowLeft') { keys.left = true; e.preventDefault(); }
+      if (code === 'KeyD' || code === 'ArrowRight') { keys.right = true; e.preventDefault(); }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      const code = e.code;
+      if (code === 'KeyW' || code === 'ArrowUp') keys.up = false;
+      if (code === 'KeyS' || code === 'ArrowDown') keys.down = false;
+      if (code === 'KeyA' || code === 'ArrowLeft') keys.left = false;
+      if (code === 'KeyD' || code === 'ArrowRight') keys.right = false;
+    });
+
+    function updatePointerCoords(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      pointer.x = ((clientX - rect.left) / rect.width) * ARENA_W;
+      pointer.y = ((clientY - rect.top) / rect.height) * ARENA_H;
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+      pointer.active = true;
+      updatePointerCoords(e);
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (pointer.active) updatePointerCoords(e);
+    });
+    window.addEventListener('mouseup', () => {
+      pointer.active = false;
+    });
+
+    canvas.addEventListener('touchstart', (e) => {
+      pointer.active = true;
+      updatePointerCoords(e);
+      e.preventDefault();
+    }, { passive: false });
+    canvas.addEventListener('touchmove', (e) => {
+      if (pointer.active) updatePointerCoords(e);
+      e.preventDefault();
+    }, { passive: false });
+    window.addEventListener('touchend', () => {
+      pointer.active = false;
+    });
+
+    // --- UI BUTTON LISTENERS ---
+    document.getElementById('btn-start').addEventListener('click', startRun);
+    document.getElementById('btn-run-again').addEventListener('click', startRun);
+    document.getElementById('btn-reset-menu').addEventListener('click', resetEchoData);
+    document.getElementById('btn-reset-results').addEventListener('click', resetEchoData);
+
+    // --- INITIALIZE ---
+    loadPersistedData();
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>

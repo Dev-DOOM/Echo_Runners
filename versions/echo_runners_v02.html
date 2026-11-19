@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Echo Runners — Prototype 0.1</title>
+<style>
+  :root{color-scheme:dark}
+  *{box-sizing:border-box}
+  body{margin:0;background:#090e18;color:#eaf2ff;font:15px/1.45 Inter,system-ui,Segoe UI,Arial,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:18px}
+  .wrap{width:min(100%,1000px)}
+  header{display:flex;justify-content:space-between;align-items:end;gap:12px;margin:0 0 12px}
+  h1{font-size:clamp(22px,4vw,34px);letter-spacing:.08em;margin:0}
+  .sub{color:#93a8c8;font-size:13px}
+  .pill{border:1px solid #29405f;border-radius:999px;padding:6px 11px;color:#a8c9ff;font-size:12px;white-space:nowrap}
+  .game{position:relative;border:1px solid #263b59;border-radius:16px;overflow:hidden;background:#0d1625;box-shadow:0 18px 70px #0009}
+  canvas{display:block;width:100%;height:auto;touch-action:none}
+  .hud{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;padding:11px 14px;background:#101c2e;border-top:1px solid #263b59}
+  .stat{color:#9bb0d0;font-size:12px}.stat b{display:block;color:#f0f6ff;font-size:18px;font-weight:700}
+  .actions{display:flex;gap:8px;align-items:center}
+  button{border:1px solid #36557c;background:#18304d;color:#eaf2ff;border-radius:10px;padding:9px 13px;font-weight:650;cursor:pointer}
+  button:hover{background:#24466d}button.primary{background:#2364a5;border-color:#3989d4}
+  .help{display:flex;justify-content:space-between;gap:16px;color:#8195b5;font-size:12px;margin:11px 2px;flex-wrap:wrap}
+  .overlay{position:absolute;inset:0;display:grid;place-items:center;background:#07101dcc;padding:18px}
+  .panel{width:min(440px,100%);text-align:center;background:#101d30;border:1px solid #36557c;border-radius:16px;padding:22px;box-shadow:0 12px 45px #0009}
+  .panel h2{margin:0 0 8px;font-size:25px}.panel p{color:#a9bbd4;margin:7px 0 17px}
+  .panel .big{font-size:34px;font-weight:800;color:#8ed9ff;margin:8px}
+  .hidden{display:none}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;color:#9eb1cd;font-size:12px;margin-top:10px}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+  @media(max-width:600px){body{padding:8px}.help{font-size:11px}.hud{padding:9px}.stat b{font-size:16px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><div><h1>ECHO RUNNERS</h1><div class="sub">Your past run is your next rival.</div></div><div class="pill">PROTOTYPE 0.1 · CORE LOOP TEST</div></header>
+  <div class="game">
+    <canvas id="game" width="900" height="560" aria-label="Echo Runners game arena"></canvas>
+    <div id="overlay" class="overlay">
+      <div class="panel">
+        <div class="pill">DISTRICT 01 · THE GRID</div>
+        <h2 id="panelTitle">Make your first run</h2>
+        <p id="panelText">Collect energy cells and deliver them to the extraction beacon before time runs out. Your route will become an Echo in your next run.</p>
+        <div id="panelScore" class="big">45 seconds</div>
+        <button id="startBtn" class="primary">START RUN</button>
+      </div>
+    </div>
+  </div>
+  <div class="hud">
+    <div class="stat">TIME<b id="time">45.0</b></div>
+    <div class="stat">CARRIED<b id="carried">0</b></div>
+    <div class="stat">DELIVERED<b id="delivered">0</b></div>
+    <div class="stat">ECHO SCORE<b id="echoScore">0</b></div>
+    <div class="stat">BEST<b id="best">0</b></div>
+    <div class="actions"><button id="restartBtn">Restart</button><button id="resetBtn">Reset Echo</button></div>
+  </div>
+  <div class="help"><span>Move: <b>WASD</b> / <b>Arrow keys</b> · Deliver by touching the beacon</span><span>Echoes can collect and deliver cells too. Beat their score!</span></div>
+  <div class="legend"><span><i class="dot" style="background:#65d7ff"></i>You</span><span><i class="dot" style="background:#bd9bff"></i>Previous-run Echo</span><span><i class="dot" style="background:#ffd66b"></i>Energy cell</span><span><i class="dot" style="background:#62f0b2"></i>Extraction beacon</span></div>
+</div>
+<script>
+(()=>{
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+const W=canvas.width,H=canvas.height, keys={};
+const $=id=>document.getElementById(id);
+const arena={x:38,y:38,w:824,h:484};
+const beacon={x:W-105,y:H-100,r:31};
+const duration=45, speed=205, cellR=9;
+let player, cells, timeLeft, carried, delivered, echoDelivered, echoCarried, running=false, last=0, route=[], echoRoute=[], echoIndex=0, best=Number(localStorage.getItem('er_best')||0), runNo=Number(localStorage.getItem('er_runs')||0), frame=0, lastRecord=0;
+$('best').textContent=best;
+try{echoRoute=JSON.parse(localStorage.getItem('er_echo')||'[]')}catch(e){echoRoute=[]}
+const rand=(a,b)=>a+Math.random()*(b-a);
+function spawnCells(n=13){
+ cells=[];
+ for(let i=0;i<n;i++){
+  let x,y,tries=0;
+  do{x=rand(arena.x+30,arena.x+arena.w-30);y=rand(arena.y+30,arena.y+arena.h-30);tries++}
+  while((Math.hypot(x-beacon.x,y-beacon.y)<100||Math.hypot(x-W/2,y-H/2)<65)&&tries<80);
+  cells.push({x,y,alive:true,pulse:rand(0,6)});
+ }
+}
+function resetRun(){
+ player={x:W/2,y:H/2,r:13};timeLeft=duration;carried=0;delivered=0;echoDelivered=0;echoCarried=0;route=[];echoIndex=0;frame=0;lastRecord=0;
+ spawnCells();$('time').textContent=duration.toFixed(1);$('carried').textContent='0';$('delivered').textContent='0';$('echoScore').textContent='0';
+}
+function start(){resetRun();running=true;$('overlay').classList.add('hidden');last=performance.now();requestAnimationFrame(loop)}
+function finish(){
+ running=false;runNo++;localStorage.setItem('er_runs',runNo);
+ if(route.length>4){echoRoute=route.slice();localStorage.setItem('er_echo',JSON.stringify(echoRoute))}
+ const score=delivered*100+carried*15;
+ const rivalScore=echoDelivered*100+echoCarried*15;
+ if(score>best){best=score;localStorage.setItem('er_best',best)}
+ $('best').textContent=best;
+ $('panelTitle').textContent=score>=rivalScore?'You beat the Echo!':'The Echo wins this run';
+ $('panelText').textContent='You: '+score+' points · Echo: '+rivalScore+' points. Your route is saved as the next Echo. Try a different route and take the lead.';
+ $('panelScore').textContent=score+' POINTS';
+ $('startBtn').textContent='RUN IT BACK';
+ $('overlay').classList.remove('hidden');
+}
+function move(dt){
+ let dx=(keys.ArrowRight||keys.d?1:0)-(keys.ArrowLeft||keys.a?1:0);
+ let dy=(keys.ArrowDown||keys.s?1:0)-(keys.ArrowUp||keys.w?1:0);
+ const len=Math.hypot(dx,dy)||1;
+ player.x=Math.max(arena.x+player.r,Math.min(arena.x+arena.w-player.r,player.x+dx/len*speed*dt));
+ player.y=Math.max(arena.y+player.r,Math.min(arena.y+arena.h-player.r,player.y+dy/len*speed*dt));
+}
+function update(dt,now){
+ timeLeft-=dt;if(timeLeft<=0){timeLeft=0;finish();return}
+ move(dt);
+ if(now-lastRecord>65){route.push({x:player.x,y:player.y});lastRecord=now}
+ if(echoRoute.length){
+  const step=duration*1000/Math.max(1,echoRoute.length);
+  echoIndex=Math.min(echoRoute.length-1,Math.floor((duration-timeLeft)*1000/step));
+ }
+ for(const c of cells){if(c.alive&&Math.hypot(player.x-c.x,player.y-c.y)<player.r+cellR+3){c.alive=false;carried++;$('carried').textContent=carried}}
+ if(Math.hypot(player.x-beacon.x,player.y-beacon.y)<player.r+beacon.r){
+  if(carried>0){delivered+=carried;carried=0;$('carried').textContent='0';$('delivered').textContent=delivered;spawnCells(9)}
+ }
+ $('time').textContent=timeLeft.toFixed(1);
+}
+function drawGrid(){
+ ctx.fillStyle='#0c1727';ctx.fillRect(0,0,W,H);
+ ctx.strokeStyle='#1b2c43';ctx.lineWidth=1;
+ for(let x=arena.x;x<=arena.x+arena.w;x+=40){ctx.beginPath();ctx.moveTo(x,arena.y);ctx.lineTo(x,arena.y+arena.h);ctx.stroke()}
+ for(let y=arena.y;y<=arena.y+arena.h;y+=40){ctx.beginPath();ctx.moveTo(arena.x,y);ctx.lineTo(arena.x+arena.w,y);ctx.stroke()}
+ ctx.strokeStyle='#345273';ctx.lineWidth=3;ctx.strokeRect(arena.x,arena.y,arena.w,arena.h);
+}
+function circle(x,y,r,color,glow=true){
+ ctx.save();if(glow){ctx.shadowBlur=18;ctx.shadowColor=color}ctx.fillStyle=color;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.restore();
+}
+function draw(){
+ drawGrid();
+ // beacon
+ ctx.save();ctx.translate(beacon.x,beacon.y);ctx.strokeStyle='#62f0b2';ctx.lineWidth=3;ctx.shadowBlur=20;ctx.shadowColor='#62f0b2';
+ ctx.beginPath();ctx.arc(0,0,beacon.r+7+Math.sin(performance.now()/240)*3,0,Math.PI*2);ctx.stroke();
+ ctx.fillStyle='#123e39';ctx.beginPath();ctx.arc(0,0,beacon.r,0,Math.PI*2);ctx.fill();ctx.fillStyle='#a8ffe0';ctx.font='bold 11px Arial';ctx.textAlign='center';ctx.fillText('DROP',0,4);ctx.restore();
+ // cells
+ for(const c of cells)if(c.alive){const pulse=Math.sin(performance.now()/180+c.pulse)*2;circle(c.x,c.y,cellR+pulse,'#ffd66b');}
+ // echo trace and echo
+ if(echoRoute.length){
+  const upto=Math.min(echoIndex,echoRoute.length-1);
+  ctx.save();ctx.beginPath();for(let i=0;i<=upto;i+=2){const p=echoRoute[i];if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y)}
+  ctx.strokeStyle='#8e71d8';ctx.globalAlpha=.32;ctx.lineWidth=3;ctx.stroke();ctx.restore();
+  const ep=echoRoute[upto];if(ep){circle(ep.x,ep.y,13,'#bd9bff');if(echoCarried>0)circle(ep.x+10,ep.y-10,4,'#ffd66b',false);ctx.fillStyle='#17132a';ctx.font='bold 10px Arial';ctx.textAlign='center';ctx.fillText('E',ep.x,ep.y+3)}
+ }
+ // player trail
+ if(route.length>1){ctx.save();ctx.beginPath();route.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.strokeStyle='#65d7ff';ctx.globalAlpha=.24;ctx.lineWidth=2;ctx.stroke();ctx.restore()}
+ circle(player.x,player.y,player.r,'#65d7ff');
+ ctx.fillStyle='#062033';ctx.beginPath();ctx.arc(player.x+4,player.y-3,3,0,Math.PI*2);ctx.fill();
+ // labels
+ ctx.fillStyle='#8ba4c5';ctx.font='12px Arial';ctx.textAlign='left';ctx.fillText('ENERGY CELLS',arena.x+12,arena.y+20);
+}
+function loop(now){if(!running)return;const dt=Math.min(.035,(now-last)/1000);last=now;update(dt,now);draw();if(running)requestAnimationFrame(loop)}
+window.addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();keys[e.key]=true});
+window.addEventListener('keyup',e=>keys[e.key]=false);
+$('startBtn').addEventListener('click',start);$('restartBtn').addEventListener('click',()=>{if(running){resetRun()}else start()});
+$('resetBtn').addEventListener('click',()=>{localStorage.removeItem('er_echo');echoRoute=[];if(!running){$('panelText').textContent='Echo cleared. Your next completed run will create a new one.';}});
+let pointer=null;
+canvas.addEventListener('pointerdown',e=>{pointer=e.pointerId;canvas.setPointerCapture(pointer);});
+canvas.addEventListener('pointermove',e=>{if(pointer!==e.pointerId)return;const r=canvas.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*W,y=(e.clientY-r.top)/r.height*H;keys._touch={x,y}});
+canvas.addEventListener('pointerup',()=>{pointer=null;delete keys._touch});
+const oldMove=move;
+function touchMove(dt){if(keys._touch){let dx=keys._touch.x-player.x,dy=keys._touch.y-player.y,l=Math.hypot(dx,dy);if(l>7){player.x+=dx/l*speed*dt;player.y+=dy/l*speed*dt;player.x=Math.max(arena.x+player.r,Math.min(arena.x+arena.w-player.r,player.x));player.y=Math.max(arena.y+player.r,Math.min(arena.y+arena.h-player.r,player.y))}}}
+const originalUpdate=update;
+update=function(dt,now){
+ if(keys._touch)touchMove(dt);else move(dt);
+ timeLeft-=dt;
+ if(timeLeft<=0){timeLeft=0;finish();return}
+ if(now-lastRecord>65){route.push({x:player.x,y:player.y});lastRecord=now}
+
+ let echoPos=null;
+ if(echoRoute.length){
+  const step=duration*1000/Math.max(1,echoRoute.length);
+  echoIndex=Math.min(echoRoute.length-1,Math.floor((duration-timeLeft)*1000/step));
+  echoPos=echoRoute[echoIndex];
+  // The Echo is a real rival: it can claim cells and bank them at the beacon.
+  for(const c of cells){
+   if(c.alive&&Math.hypot(echoPos.x-c.x,echoPos.y-c.y)<13+cellR+3){
+    c.alive=false;echoCarried++;
+   }
+  }
+  if(Math.hypot(echoPos.x-beacon.x,echoPos.y-beacon.y)<13+beacon.r&&echoCarried>0){
+   echoDelivered+=echoCarried;echoCarried=0;
+  }
+ }
+ for(const c of cells){
+  if(c.alive&&Math.hypot(player.x-c.x,player.y-c.y)<player.r+cellR+3){
+   c.alive=false;carried++;$('carried').textContent=carried;
+  }
+ }
+ if(Math.hypot(player.x-beacon.x,player.y-beacon.y)<player.r+beacon.r){
+  if(carried>0){
+   delivered+=carried;carried=0;$('carried').textContent='0';$('delivered').textContent=delivered;
+   // Refill a few cells after a delivery, while keeping the arena readable.
+   spawnCells(9);
+  }
+ }
+ $('echoScore').textContent=echoDelivered*100+echoCarried*15;
+ $('time').textContent=timeLeft.toFixed(1);
+};
+draw();resetRun();draw();
+})();
+</script>
+</body>
+</html>
